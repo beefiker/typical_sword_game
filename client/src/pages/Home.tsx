@@ -498,6 +498,7 @@ export default function Home() {
   ]);
   const [offlineSummary, setOfflineSummary] = useState<string | null>(null);
   const [dangerMode, setDangerMode] = useState(false);
+  const [showGoldHud, setShowGoldHud] = useState(false);
   const initialized = useRef(false);
   const derived = useMemo(() => derive(state), [state]);
 
@@ -624,6 +625,13 @@ export default function Home() {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, lastSavedAt: Date.now() }));
   }, [state]);
+
+  useEffect(() => {
+    const updateGoldHud = () => setShowGoldHud(window.scrollY > 360);
+    updateGoldHud();
+    window.addEventListener("scroll", updateGoldHud, { passive: true });
+    return () => window.removeEventListener("scroll", updateGoldHud);
+  }, []);
 
   const hpPercent = (state.monsterHp / derived.monsterMaxHp) * 100;
   const expPercent = (state.exp / derived.expToNext) * 100;
@@ -842,6 +850,11 @@ export default function Home() {
   return (
     <main className={`game-shell ${dangerMode ? "danger-mode" : ""}`}>
       <div className="background-plate" />
+      <div className={`floating-gold-hud ${showGoldHud ? "visible" : ""}`} aria-live="polite" aria-hidden={!showGoldHud}>
+        <CircleDollarSign size={16} />
+        <span>현재 골드</span>
+        <strong>{compact(state.gold)}G</strong>
+      </div>
       <header className="topbar">
         <div className="brand-block">
           <div className="brand-mark"><Sword size={18} /></div>
