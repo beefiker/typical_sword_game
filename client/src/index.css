@@ -147,11 +147,12 @@
     @apply cursor-pointer;
   }
 
-  button:disabled {
-    cursor: not-allowed;
-    opacity: 0.5;
-    filter: grayscale(0.5);
-  }
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+  filter: grayscale(0.55) brightness(0.74);
+}
+
 }
 
 @layer components {
@@ -375,6 +376,7 @@
   flex: 0 0 auto;
 }
 
+/* Design Philosophy: Pixel Quest Forge. Buttons should feel like small carved RPG inventory plaques, not flat web controls. */
 .system-pill,
 .ghost-button,
 .primary-button,
@@ -386,13 +388,87 @@
 .trait-card button,
 .recipe,
 .region-card {
+  position: relative;
+  isolation: isolate;
   min-height: 44px;
   border: 3px solid #8d765c;
-  border-color: #bfa46f #3b2930 #241923 #d7c07d;
+  border-color: #f3d487 #5b3940 #1b1118 #ffe3a0;
   color: var(--cream);
-  background: #342536;
-  box-shadow: inset -3px -3px 0 rgba(0, 0, 0, 0.34), 3px 3px 0 #120d16;
-  transition: transform 120ms steps(2, end), filter 120ms steps(2, end), box-shadow 120ms steps(2, end);
+  background:
+    linear-gradient(90deg, rgba(255, 244, 168, 0.08) 1px, transparent 1px) 0 0 / 6px 6px,
+    linear-gradient(0deg, rgba(255, 244, 168, 0.055) 1px, transparent 1px) 0 0 / 6px 6px,
+    linear-gradient(180deg, rgba(91, 58, 50, 0.95) 0%, rgba(54, 36, 42, 0.98) 50%, rgba(31, 22, 31, 0.98) 100%);
+  box-shadow:
+    inset 0 3px 0 rgba(255, 239, 166, 0.2),
+    inset 3px 0 0 rgba(255, 230, 139, 0.09),
+    inset -4px -4px 0 rgba(0, 0, 0, 0.42),
+    3px 3px 0 #120d16,
+    0 0 0 1px rgba(255, 226, 120, 0.2);
+  text-shadow: 1px 1px 0 #120d16;
+  overflow: hidden;
+  image-rendering: pixelated;
+  transition: transform 120ms steps(2, end), filter 120ms steps(2, end), box-shadow 120ms steps(2, end), border-color 120ms steps(2, end);
+}
+
+.system-pill::before,
+.ghost-button::before,
+.primary-button::before,
+.secondary-button::before,
+.wide-action::before,
+.quick-actions button::before,
+.tabbar button::before,
+.shop-item button::before,
+.trait-card button::before,
+.recipe::before,
+.region-card::before {
+  content: "";
+  position: absolute;
+  inset: 3px 3px auto 3px;
+  z-index: 0;
+  height: 7px;
+  background:
+    linear-gradient(90deg, transparent 0 5%, rgba(255, 255, 216, 0.38) 5% 13%, transparent 13% 19%, rgba(255, 231, 123, 0.22) 19% 72%, transparent 72% 100%);
+  opacity: 0.82;
+  pointer-events: none;
+}
+
+.system-pill::after,
+.ghost-button::after,
+.primary-button::after,
+.secondary-button::after,
+.wide-action::after,
+.quick-actions button::after,
+.tabbar button::after,
+.shop-item button::after,
+.trait-card button::after,
+.recipe::after,
+.region-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(circle at 12px 12px, rgba(255, 255, 255, 0.14) 0 1px, transparent 1px 100%),
+    linear-gradient(135deg, transparent 0 46%, rgba(255, 255, 255, 0.05) 46% 52%, transparent 52% 100%);
+  background-size: 13px 13px, 100% 100%;
+  mix-blend-mode: screen;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.system-pill > *,
+.ghost-button > *,
+.primary-button > *,
+.secondary-button > *,
+.wide-action > *,
+.quick-actions button > *,
+.tabbar button > *,
+.shop-item button > *,
+.trait-card button > *,
+.recipe > *,
+.region-card > * {
+  position: relative;
+  z-index: 1;
 }
 
 .system-pill {
@@ -413,15 +489,34 @@ button:hover:not(:disabled),
 .region-card:hover,
 .recipe:hover {
   transform: translate(-1px, -1px);
-  filter: brightness(1.08) saturate(1.06);
-  box-shadow: inset -3px -3px 0 rgba(0, 0, 0, 0.28), 4px 4px 0 #120d16;
+  filter: brightness(1.13) saturate(1.14);
+  border-color: #fff2a6 #7a4b35 #231219 #fff9c8;
+  box-shadow:
+    inset 0 3px 0 rgba(255, 249, 205, 0.3),
+    inset -4px -4px 0 rgba(0, 0, 0, 0.34),
+    4px 4px 0 #120d16,
+    0 0 0 2px rgba(255, 224, 92, 0.2),
+    0 0 18px rgba(255, 216, 86, 0.12);
+}
+
+button:hover:not(:disabled)::before,
+.region-card:hover::before,
+.recipe:hover::before {
+  opacity: 1;
+  background:
+    linear-gradient(90deg, transparent 0 4%, rgba(255, 255, 230, 0.62) 4% 15%, transparent 15% 21%, rgba(255, 232, 111, 0.36) 21% 82%, transparent 82% 100%);
 }
 
 button:active:not(:disabled),
 .region-card:active,
 .recipe:active {
   transform: translate(2px, 2px);
-  box-shadow: inset 3px 3px 0 rgba(0, 0, 0, 0.35), 1px 1px 0 #120d16;
+  filter: brightness(0.92) saturate(1.04);
+  border-color: #5f4537 #f2d084 #ffe1a0 #25151c;
+  box-shadow:
+    inset 4px 4px 0 rgba(0, 0, 0, 0.48),
+    inset -1px -1px 0 rgba(255, 231, 145, 0.2),
+    1px 1px 0 #120d16;
 }
 
 .hero-console {
@@ -519,14 +614,22 @@ button:active:not(:disabled),
 
 .primary-button {
   color: #201513;
-  background: var(--gold);
-  border-color: #fff4a8 #7a5e20 #543d12 #fff7bc;
+  background:
+    linear-gradient(90deg, rgba(126, 80, 19, 0.08) 1px, transparent 1px) 0 0 / 5px 5px,
+    linear-gradient(0deg, rgba(126, 80, 19, 0.08) 1px, transparent 1px) 0 0 / 5px 5px,
+    linear-gradient(180deg, #fff06f 0%, #f1c924 45%, #bf7d16 100%);
+  border-color: #fff8bd #7a5e20 #543d12 #fffbd0;
+  text-shadow: 1px 1px 0 rgba(255, 255, 218, 0.34);
 }
 
 .secondary-button {
-  color: #111827;
-  background: var(--cyan);
-  border-color: #a6f5ff #07576a #063b4c #d3fbff;
+  color: #08151a;
+  background:
+    linear-gradient(90deg, rgba(5, 81, 101, 0.12) 1px, transparent 1px) 0 0 / 5px 5px,
+    linear-gradient(0deg, rgba(5, 81, 101, 0.1) 1px, transparent 1px) 0 0 / 5px 5px,
+    linear-gradient(180deg, #8ff5ff 0%, #10bfd8 48%, #08718a 100%);
+  border-color: #d6fdff #07576a #063b4c #efffff;
+  text-shadow: 1px 1px 0 rgba(230, 255, 255, 0.32);
 }
 
 .hero-visual {
@@ -772,13 +875,17 @@ button:active:not(:disabled),
 .quick-actions button:first-child,
 .wide-action {
   color: #201513;
-  background: var(--gold);
-  border-color: #fff4a8 #7a5e20 #543d12 #fff7bc;
+  background:
+    linear-gradient(90deg, rgba(126, 80, 19, 0.08) 1px, transparent 1px) 0 0 / 5px 5px,
+    linear-gradient(0deg, rgba(126, 80, 19, 0.08) 1px, transparent 1px) 0 0 / 5px 5px,
+    linear-gradient(180deg, #fff06f 0%, #f0c729 45%, #bd7b15 100%);
+  border-color: #fff8bd #7a5e20 #543d12 #fffbd0;
+  text-shadow: 1px 1px 0 rgba(255, 255, 218, 0.34);
 }
 
-.quick-actions button:nth-child(2) { border-color: #ffe87b #6f5b1b #4a3911 #fff4a8; color: var(--gold); }
-.quick-actions button:nth-child(3) { border-color: #8ff3ff #0e5a67 #073340 #c6fbff; color: var(--cyan); }
-.quick-actions button:nth-child(4) { border-color: #ffb28e #793116 #4c1b12 #ffd2ba; color: var(--orange); }
+.quick-actions button:nth-child(2) { border-color: #fff0a0 #6f5b1b #4a3911 #fff9c2; color: var(--gold); }
+.quick-actions button:nth-child(3) { border-color: #bcf8ff #0e5a67 #073340 #e7feff; color: var(--cyan); }
+.quick-actions button:nth-child(4) { border-color: #ffd0b9 #793116 #4c1b12 #ffe1d2; color: var(--orange); }
 
 .monster-card {
   gap: 14px;
@@ -851,9 +958,18 @@ button:active:not(:disabled),
 }
 
 .tabbar button.active {
-  color: #15101a;
-  background: var(--cyan);
-  border-color: #b9f8ff #07576a #063b4c #e1fdff;
+  color: #08151a;
+  background:
+    linear-gradient(90deg, rgba(5, 81, 101, 0.12) 1px, transparent 1px) 0 0 / 5px 5px,
+    linear-gradient(0deg, rgba(5, 81, 101, 0.1) 1px, transparent 1px) 0 0 / 5px 5px,
+    linear-gradient(180deg, #8ff5ff 0%, #12c2dc 48%, #08718a 100%);
+  border-color: #d6fdff #07576a #063b4c #efffff;
+  box-shadow:
+    inset 0 3px 0 rgba(255, 255, 255, 0.42),
+    inset -4px -4px 0 rgba(0, 63, 74, 0.42),
+    3px 3px 0 #120d16,
+    0 0 0 2px rgba(74, 231, 255, 0.16);
+  text-shadow: 1px 1px 0 rgba(230, 255, 255, 0.38);
 }
 
 .console-panel {
@@ -966,7 +1082,15 @@ button:active:not(:disabled),
 .region-card.active,
 .check-item.done {
   border-color: #9ff5ff #07576a #063b4c #d2fbff;
-  background: rgba(3, 174, 210, 0.18);
+  background:
+    linear-gradient(90deg, rgba(93, 240, 255, 0.11) 1px, transparent 1px) 0 0 / 6px 6px,
+    linear-gradient(0deg, rgba(93, 240, 255, 0.08) 1px, transparent 1px) 0 0 / 6px 6px,
+    linear-gradient(180deg, rgba(10, 129, 144, 0.34), rgba(26, 24, 34, 0.86));
+  box-shadow:
+    inset 0 3px 0 rgba(205, 255, 255, 0.25),
+    inset -4px -4px 0 rgba(0, 0, 0, 0.36),
+    3px 3px 0 #120d16,
+    0 0 0 2px rgba(87, 233, 255, 0.15);
 }
 
 .check-item.done span {
@@ -993,8 +1117,13 @@ button:active:not(:disabled),
   width: 100%;
   padding: 0 12px;
   color: #201513;
-  background: var(--gold);
+  background:
+    linear-gradient(90deg, rgba(126, 80, 19, 0.08) 1px, transparent 1px) 0 0 / 5px 5px,
+    linear-gradient(0deg, rgba(126, 80, 19, 0.08) 1px, transparent 1px) 0 0 / 5px 5px,
+    linear-gradient(180deg, #fff06f 0%, #f0c729 45%, #bd7b15 100%);
+  border-color: #fff8bd #7a5e20 #543d12 #fffbd0;
   font-weight: 900;
+  text-shadow: 1px 1px 0 rgba(255, 255, 218, 0.34);
 }
 
 .inventory-item {
