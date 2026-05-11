@@ -20,7 +20,6 @@ import {
   History,
   PackageOpen,
   Pickaxe,
-  RotateCcw,
   ShieldCheck,
   ShoppingCart,
   Skull,
@@ -836,14 +835,6 @@ export default function Home() {
     }, "gold");
   }
 
-  function resetGame() {
-    const ok = window.confirm("정말 모든 진행을 초기화할까요? 이 작업은 되돌릴 수 없습니다.");
-    if (!ok) return;
-    const fresh = initialState();
-    setState(fresh);
-    setLogs([{ id: Date.now(), text: "새 제련 기록이 시작되었습니다.", tone: "cyan" }]);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(fresh));
-  }
 
   const finalUnlocked = isRegionUnlocked(REGIONS[5], state);
 
@@ -865,7 +856,6 @@ export default function Home() {
         </div>
         <div className="topbar-actions">
           <span className="system-pill"><Activity size={14} /> 자동 전투 가동 중</span>
-          <button className="ghost-button" onClick={resetGame}><RotateCcw size={15} /> 초기화</button>
         </div>
       </header>
 
