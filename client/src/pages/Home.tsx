@@ -841,7 +841,7 @@ export default function Home() {
 
   return (
     <main className={`game-shell ${dangerMode ? "danger-mode" : ""}`}>
-      <div className="background-plate" style={{ backgroundImage: `url(${ASSETS.forgeBg})` }} />
+      <div className="background-plate" />
       <header className="topbar">
         <div className="brand-block">
           <div className="brand-mark"><Sword size={18} /></div>
@@ -867,26 +867,42 @@ export default function Home() {
         </section>
       ) : null}
 
-      <section className="hero-console">
+      <section className="hero-console world-hero">
         <div className="hero-copy">
-          <span className="eyebrow">PIXEL QUEST / ONE-HAND IDLE RPG</span>
-          <h2><span>낡은 검을</span><span>전설 장비로</span><span>키우는 방치형 RPG</span></h2>
+          <span className="eyebrow">GREENVALE QUEST / IDLE SWORD RPG</span>
+          <h2><span>숲속 마을의</span><span>작은 검사</span><span>장비 성장기</span></h2>
           <p>
-            현재 퀘스트는 <strong>{nextMilestone}</strong>입니다. 몬스터를 쓰러뜨려 골드와 경험치를 모으고,
-            강화한 검은 누적 투자보다 높은 가격으로 판매해 다음 원정을 준비합니다.
+            주인공 <strong>로안</strong>은 낡은 숲길 마을에서 검을 벼리며 성장합니다. 현재 목표는 <strong>{nextMilestone}</strong>이고,
+            강화한 검은 누적 투자보다 높은 가격으로 판매해 다음 모험 장비를 마련합니다.
           </p>
-          <div className="hero-status-board" aria-label="캐릭터 전투 상태">
-            <span>HP 안정</span>
-            <strong>Lv.{state.level} 모험가</strong>
-            <small>EXP {pct(expPercent)} · DPS {compact(derived.dps)}</small>
+          <div className="hero-status-board character-board" aria-label="캐릭터 전투 상태">
+            <PixelAdventurer size="mini" />
+            <div>
+              <span>MAIN CHARACTER</span>
+              <strong>Lv.{state.level} 로안 · 숲길 검사</strong>
+              <small>EXP {pct(expPercent)} · DPS {compact(derived.dps)} · +{state.enhance} 검</small>
+            </div>
           </div>
           <div className="hero-actions">
-            <button className="primary-button" onClick={() => enhanceSword(false, false)}><Hammer size={17} /> 기본 강화</button>
-            <button className="secondary-button" onClick={manualAttack}><Sword size={17} /> 직접 공격</button>
+            <button className="primary-button" onClick={() => enhanceSword(false, false)}><Hammer size={17} /> 검 벼리기</button>
+            <button className="secondary-button" onClick={manualAttack}><Sword size={17} /> 로안 공격</button>
           </div>
         </div>
-        <div className="hero-visual">
-          <img src={ASSETS.swordHero} alt="정밀 강화 검" />
+        <div className="hero-visual pixel-world" aria-label="숲속 마을에서 검을 든 주인공 로안">
+          <div className="world-sky" />
+          <div className="world-hills hill-back" />
+          <div className="world-hills hill-front" />
+          <div className="world-village house-one"><span /><i /></div>
+          <div className="world-village tower-one"><span /><i /></div>
+          <div className="world-path" />
+          <div className="world-tree tree-left"><span /><i /></div>
+          <div className="world-tree tree-right"><span /><i /></div>
+          <div className="world-lamp lamp-left" />
+          <div className="world-lamp lamp-right" />
+          <div className="world-forge"><span /></div>
+          <PixelAdventurer size="hero" />
+          <div className="monster-sprite" aria-hidden="true"><span /></div>
+          <div className="world-label">QUEST READY</div>
           <div className="scanline" />
         </div>
       </section>
@@ -903,7 +919,15 @@ export default function Home() {
       <section className="main-grid">
         <aside className="left-stack">
           <div className="panel sword-panel">
-            <SectionTitle icon={Sword} title="장비 슬롯" eyebrow="SWORD EQUIPMENT" />
+            <SectionTitle icon={Sword} title="로안의 장비" eyebrow="HERO EQUIPMENT" />
+            <div className="hero-identity-card">
+              <PixelAdventurer size="card" />
+              <div>
+                <span>주인공</span>
+                <strong>로안, 숲길 검사</strong>
+                <small>마을 대장간에서 검을 키워 원정 자금을 만드는 한손 조작형 모험가</small>
+              </div>
+            </div>
             <div className="sword-level-row">
               <strong>+{state.enhance}</strong>
               <div>
@@ -1083,6 +1107,28 @@ function ShopItem({ icon: Icon, title, price, text, onBuy }: { icon: typeof Hamm
         <p>{text}</p>
         <button onClick={onBuy}><BadgePercent size={14} /> {price}</button>
       </div>
+    </div>
+  );
+}
+
+function PixelAdventurer({ size = "hero" }: { size?: "hero" | "card" | "mini" }) {
+  return (
+    <div className={`pixel-adventurer pixel-adventurer-${size}`} aria-hidden="true">
+      <span className="pa-shadow" />
+      <span className="pa-tail" />
+      <span className="pa-leg pa-leg-left" />
+      <span className="pa-leg pa-leg-right" />
+      <span className="pa-body" />
+      <span className="pa-cloak" />
+      <span className="pa-head" />
+      <span className="pa-hair" />
+      <span className="pa-ear pa-ear-left" />
+      <span className="pa-ear pa-ear-right" />
+      <span className="pa-arm pa-arm-left" />
+      <span className="pa-arm pa-arm-right" />
+      <span className="pa-shield" />
+      <span className="pa-sword" />
+      <span className="pa-sword-glint" />
     </div>
   );
 }
