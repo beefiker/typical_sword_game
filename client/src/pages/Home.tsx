@@ -249,22 +249,40 @@ function spriteSheet(frameWidth: number, frameHeight: number, frames: PixelRect[
 
 function heroFrame(capeLift = 0, step = 0): PixelRect[] {
   return [
-    // dark outline and red hero cape, kept saturated to avoid the washed-out white overlay look
-    px(8, 13 - capeLift, 13, 4, "#4a0b1f"), px(6, 17 - capeLift, 18, 6, "#b4143d"), px(4, 23 - capeLift, 20, 7, "#f0444f"),
-    px(3, 30 - capeLift, 16, 5, "#c01d3f"), px(3, 35 - capeLift, 8, 4, "#72152c"), px(11, 25 - capeLift, 9, 3, "#ff7670"),
-    // black hair silhouette, face, ears and readable expression
-    px(23, 4, 10, 3, "#0a0b0f"), px(20, 7, 15, 5, "#0a0b0f"), px(20, 12, 15, 4, "#0a0b0f"), px(34, 9, 5, 3, "#0a0b0f"), px(34, 13, 4, 2, "#0a0b0f"),
-    px(22, 12, 11, 9, "#ffd5b9"), px(22, 17, 12, 6, "#f0b28f"), px(20, 16, 3, 4, "#ffd5b9"), px(33, 15, 3, 4, "#ffd5b9"),
-    px(25, 15, 2, 4, "#171015"), px(31, 15, 2, 4, "#171015"), px(28, 20, 3, 2, "#b86b5c"),
-    // blue tunic and gold fasteners
-    px(22, 24, 13, 12, "#1f4fb0"), px(24, 25, 8, 3, "#336ee1"), px(29, 25, 3, 3, "#f8de22"), px(27, 30, 3, 3, "#f8de22"), px(31, 33, 3, 2, "#f8de22"),
-    px(20, 35, 18, 3, "#5a3b2e"), px(22, 38, 5, 6 + step, "#4b352b"), px(33, 38, 5, 6 - step, "#4b352b"), px(20, 44, 9, 3, "#101014"), px(33, 44, 9, 3, "#101014"),
-    px(17, 25, 5, 11, "#ffd5b9"), px(36, 24, 5, 11, "#ffd5b9"), px(39, 27, 3, 4, "#ffd5b9"),
-    // straight pixel sword: repeated diagonal blade blocks of the same size, not curved or bowed
-    px(15, 31, 3, 8, "#9f6815"), px(11, 37, 10, 2, "#b98218"), px(13, 34, 3, 3, "#f8de22"),
-    px(10, 39, 3, 3, "#e7f0e9"), px(8, 41, 3, 3, "#cbd7d1"), px(6, 43, 3, 3, "#e7f0e9"), px(4, 45, 3, 3, "#aab9b1"), px(2, 47, 3, 3, "#f2fbf5"),
-    px(11, 40, 2, 2, "#ffffff"), px(7, 44, 2, 2, "#ffffff"),
-    px(38, 29, 6, 8, "#7e1230"), px(39, 30, 5, 6, "#f8de22"), px(40, 31, 3, 4, "#d12052"),
+    // red cape – deep crimson outline, vivid mid, bright highlight
+    px(8, 13 - capeLift, 13, 4, "#3d0818"), px(6, 17 - capeLift, 18, 6, "#c41840"), px(4, 23 - capeLift, 20, 7, "#f04455"),
+    px(3, 30 - capeLift, 16, 5, "#c8203a"), px(3, 35 - capeLift, 8, 4, "#7a1a30"), px(11, 25 - capeLift, 9, 3, "#ff8075"),
+    px(7, 18 - capeLift, 4, 3, "#ff9080"), // cape highlight edge
+    // hair – dark root, mid-brown, highlight strand
+    px(23, 4, 10, 3, "#08090e"), px(20, 7, 15, 5, "#08090e"), px(20, 12, 15, 4, "#08090e"),
+    px(34, 9, 5, 3, "#08090e"), px(34, 13, 4, 2, "#08090e"),
+    px(24, 7, 4, 3, "#2c1a0e"), px(28, 8, 3, 2, "#402414"), // hair texture
+    // face – warm skin highlight, midtone, ears
+    px(22, 12, 11, 9, "#ffd8bc"), px(22, 17, 12, 6, "#f0b490"), px(23, 12, 4, 3, "#ffe8d4"),
+    px(20, 16, 3, 4, "#ffd8bc"), px(33, 15, 3, 4, "#ffd8bc"),
+    // eyes – dark with bright highlight dot
+    px(25, 15, 2, 3, "#141018"), px(31, 15, 2, 3, "#141018"),
+    px(25, 15, 1, 1, "#4898e8"), px(31, 15, 1, 1, "#4898e8"), // iris blue
+    // mouth
+    px(28, 20, 3, 2, "#b0604e"),
+    // blue tunic – base, highlight stripe, shadow
+    px(22, 24, 13, 12, "#1a44a8"), px(24, 25, 7, 3, "#2e60d8"), px(22, 24, 2, 4, "#3070e8"),
+    // gold fasteners
+    px(29, 25, 3, 3, "#f8de22"), px(27, 30, 3, 3, "#f8de22"), px(31, 33, 3, 2, "#ffe066"),
+    // belt + legs
+    px(20, 35, 18, 3, "#5e3e30"), px(22, 38, 5, 6 + step, "#4e3830"), px(33, 38, 5, 6 - step, "#4e3830"),
+    px(20, 44, 9, 3, "#0e1014"), px(33, 44, 9, 3, "#0e1014"),
+    // arms + hands
+    px(17, 25, 5, 11, "#ffd8bc"), px(36, 24, 5, 11, "#ffd8bc"), px(39, 27, 3, 4, "#ffd8bc"),
+    // sword guard + hilt
+    px(15, 31, 3, 8, "#a87018"), px(11, 37, 10, 2, "#c49228"), px(13, 34, 3, 3, "#f8de22"),
+    // sword blade – crisp pixel columns with highlight + edge
+    px(10, 39, 3, 3, "#e8f4f0"), px(8, 41, 3, 3, "#d0deda"), px(6, 43, 3, 3, "#e8f4f0"),
+    px(4, 45, 3, 3, "#b8cac4"), px(2, 47, 3, 3, "#f4fcf8"),
+    px(11, 40, 1, 2, "#ffffff"), px(7, 44, 1, 2, "#ffffff"), // blade gleam
+    // shield on left arm
+    px(38, 29, 6, 8, "#8a1638"), px(39, 30, 5, 6, "#f8de22"), px(40, 31, 3, 4, "#d12052"),
+    px(40, 31, 1, 1, "#ff6090"), // shield highlight
   ];
 }
 
@@ -277,7 +295,39 @@ function goblinFrame(arm = 0): PixelRect[] {
 }
 
 function skeletonFrame(step = 0): PixelRect[] {
-  return [px(11, 4, 11, 4, "#efe7bf"), px(9, 8, 15, 8, "#efe7bf"), px(12, 10, 3, 4, "#10151a"), px(19, 10, 3, 4, "#10151a"), px(15, 15, 4, 2, "#10151a"), px(14, 17, 6, 3, "#d8d39f"), px(13, 20, 8, 2, "#efe7bf"), px(12, 23, 10, 2, "#efe7bf"), px(15, 20, 2, 10, "#efe7bf"), px(20, 18, 3, 11, "#efe7bf"), px(9, 18, 3, 11, "#efe7bf"), px(11, 29, 4, 3 + step, "#efe7bf"), px(20, 29, 4, 3 - step, "#efe7bf")];
+  return [
+    // skull top – bone highlight + midtone
+    px(12, 3, 8, 2, "#2a2018"), px(12, 4, 8, 5, "#f0e8cc"), px(13, 4, 4, 2, "#fffce8"),
+    // skull face
+    px(9, 8, 14, 7, "#e8ddb5"), px(10, 8, 5, 2, "#f5edca"),
+    px(9, 8, 1, 7, "#2a2018"), px(22, 8, 1, 7, "#2a2018"),
+    // eye sockets – dark + amber glow
+    px(11, 10, 4, 4, "#0d0b10"), px(18, 10, 4, 4, "#0d0b10"),
+    px(12, 11, 2, 2, "#c97800"), px(19, 11, 2, 2, "#c97800"),
+    px(12, 11, 1, 1, "#ffd060"), px(19, 11, 1, 1, "#ffd060"),
+    // nose void
+    px(15, 15, 3, 2, "#0d0b10"),
+    // jaw
+    px(13, 16, 1, 4, "#2a2018"), px(20, 16, 1, 4, "#2a2018"),
+    px(14, 16, 6, 1, "#e8ddb5"), px(14, 17, 6, 3, "#ccc298"),
+    // teeth
+    px(15, 18, 2, 2, "#f0e8cc"), px(18, 18, 2, 2, "#f0e8cc"),
+    // ribcage frame
+    px(11, 20, 11, 1, "#1e1a14"), px(11, 27, 11, 1, "#1e1a14"),
+    px(11, 20, 1, 8, "#1e1a14"), px(21, 20, 1, 8, "#1e1a14"),
+    // ribs interior fill + rib stripes
+    px(12, 21, 9, 6, "#dbd1ad"),
+    px(12, 22, 3, 2, "#b5aa82"), px(17, 22, 3, 2, "#b5aa82"),
+    px(12, 25, 3, 1, "#b5aa82"), px(17, 25, 3, 1, "#b5aa82"),
+    // spine column
+    px(15, 16, 2, 12, "#c4ba90"),
+    // arms (bone sticks with shadow side)
+    px(8, 19, 3, 9, "#dbd1ad"), px(10, 19, 1, 9, "#b5aa82"),
+    px(21, 19, 3, 9, "#dbd1ad"), px(21, 19, 1, 9, "#b5aa82"),
+    // legs – clamped within 32px viewBox
+    px(12, 27, 3, 2 + step, "#dbd1ad"), px(12, 28 + step, 3, 1, "#2a2018"),
+    px(18, 27, 3, 2 - step, "#dbd1ad"), px(18, 28 - step, 3, 1, "#2a2018"),
+  ];
 }
 
 function zombieFrame(arm = 0): PixelRect[] {
@@ -293,7 +343,22 @@ function orcFrame(arm = 0): PixelRect[] {
 }
 
 function ghostFrame(float = 0): PixelRect[] {
-  return [px(10, 6 + float, 12, 4, "#edf5e8"), px(7, 10 + float, 18, 10, "#edf5e8"), px(6, 20 + float, 20, 7, "#c9e7e0"), px(8, 27 + float, 4, 3, "#c9e7e0"), px(16, 27 + float, 4, 3, "#c9e7e0"), px(23, 27 + float, 4, 3, "#c9e7e0"), px(11, 13 + float, 4, 5, "#22243d"), px(20, 13 + float, 4, 5, "#22243d"), px(15, 20 + float, 7, 2, "#91b9c8")];
+  return [
+    // body – cool white with inner glow tint
+    px(10, 6 + float, 12, 4, "#f0f8f4"), px(9, 7 + float, 3, 2, "#dff0eb"),
+    px(7, 10 + float, 18, 10, "#eaf5f0"), px(7, 10 + float, 4, 3, "#ffffff"),
+    px(6, 20 + float, 20, 7, "#c0e4dc"),
+    // wispy bottom tendrils
+    px(8, 27 + float, 4, 3, "#b4d8d0"), px(16, 27 + float, 4, 3, "#c0e4dc"), px(23, 27 + float, 4, 3, "#b4d8d0"),
+    // dark hollow eyes with cyan inner glow
+    px(11, 13 + float, 4, 5, "#1c2040"), px(20, 13 + float, 4, 5, "#1c2040"),
+    px(12, 14 + float, 2, 3, "#30b8d8"), px(21, 14 + float, 2, 3, "#30b8d8"), // eye glow
+    px(12, 14 + float, 1, 1, "#80f0ff"), px(21, 14 + float, 1, 1, "#80f0ff"), // eye spark
+    // translucent mouth
+    px(15, 20 + float, 7, 2, "#8ab8c8"),
+    // edge shimmer
+    px(7, 10 + float, 1, 10, "#d8f0ea"), px(24, 10 + float, 1, 10, "#d8f0ea"),
+  ];
 }
 
 function wolfFrame(step = 0): PixelRect[] {
@@ -301,7 +366,26 @@ function wolfFrame(step = 0): PixelRect[] {
 }
 
 function bossFrame(pulse = 0): PixelRect[] {
-  return [px(5, 4, 22, 5, "#100713"), px(3, 9, 26, 11, "#26143b"), px(6, 20, 20, 8, "#120817"), px(9, 11, 4, 6, "#d12052"), px(20, 11, 4, 6, "#d12052"), px(14, 19, 5 + pulse, 3, "#f8de22"), px(2, 15, 5, 6, "#4e1b66"), px(26, 15, 5, 6, "#4e1b66"), px(10, 28, 4, 4, "#2a1739"), px(20, 28, 4, 4, "#2a1739")];
+  return [
+    // dark massive body silhouette
+    px(5, 4, 22, 5, "#0c0510"), px(3, 9, 26, 11, "#200f33"), px(6, 20, 20, 8, "#0e0614"),
+    // outline edges
+    px(3, 9, 1, 11, "#3a1250"), px(28, 9, 1, 11, "#3a1250"),
+    // glowing red eyes – large and menacing
+    px(9, 11, 4, 6, "#c0103a"), px(20, 11, 4, 6, "#c0103a"),
+    px(10, 12, 2, 4, "#ff2060"), px(21, 12, 2, 4, "#ff2060"), // eye inner glow
+    px(10, 12, 1, 1, "#ffb0c0"), px(21, 12, 1, 1, "#ffb0c0"), // eye spark
+    // golden core – pulsing size
+    px(14, 19, 5 + pulse, 3, "#f8de22"), px(14 + 1, 19, 3 + pulse, 1, "#fffcb0"),
+    // purple shoulder masses
+    px(2, 15, 5, 6, "#421566"), px(4, 15, 2, 4, "#6024a0"),
+    px(26, 15, 5, 6, "#421566"), px(26, 15, 2, 4, "#6024a0"),
+    // legs / base
+    px(10, 28, 4, 4, "#240f36"), px(20, 28, 4, 4, "#240f36"),
+    px(10, 28, 2, 2, "#3a1850"), px(20, 28, 2, 2, "#3a1850"),
+    // dark aura fringe top
+    px(7, 4, 2, 2, "#2a0840"), px(14, 3, 4, 2, "#2a0840"), px(21, 4, 2, 2, "#2a0840"),
+  ];
 }
 
 const HERO_FRAMES = [heroFrame(0, 0), heroFrame(1, 1)];
