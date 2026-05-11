@@ -18,16 +18,14 @@ function Router() {
   );
 }
 
-// NOTE: About Theme
-// - First choose a default theme according to your design style (dark or light bg), than change color palette in index.css
-//   to keep consistent foreground/background color across components
-// - If you want to make theme switchable, pass `switchable` ThemeProvider and use `useTheme` hook
+// Design Philosophy: Geist-Industrial Minimalism.
+// App-level shell uses a dark precision-console theme so #03AED2, #F8DE22, #F45B26, and #D12052 remain functional accents.
 
 function App() {
   return (
     <ErrorBoundary>
       <ThemeProvider
-        defaultTheme="light"
+        defaultTheme="dark"
         // switchable
       >
         <TooltipProvider>

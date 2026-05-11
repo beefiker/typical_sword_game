@@ -1,25 +1,1089 @@
-import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
-import { Streamdown } from 'streamdown';
-
-/**
- * All content in this page are only for example, replace with your own feature implementation
- * When building pages, remember your instructions in Frontend Best Practices, Design Guide and Common Pitfalls
+/*
+ * Design Philosophy: Geist-Industrial Minimalism.
+ * The UI must feel like a precise forge console: mostly neutral Geist-like surfaces,
+ * thin borders, deliberate whitespace, and only four functional accent colors:
+ * #03AED2 progress/action, #F8DE22 reward/gold, #F45B26 warning/heat, #D12052 failure/lethal.
  */
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Activity,
+  ArrowUpRight,
+  Award,
+  BadgePercent,
+  Boxes,
+  CircleDollarSign,
+  Clock3,
+  Flame,
+  FlaskConical,
+  Hammer,
+  History,
+  PackageOpen,
+  Pickaxe,
+  RotateCcw,
+  ShieldCheck,
+  ShoppingCart,
+  Skull,
+  Sparkles,
+  Sword,
+  Target,
+  Trophy,
+  Zap,
+} from "lucide-react";
+import { toast } from "sonner";
+
+const ASSETS = {
+  swordHero:
+    "https://d2xsxph8kpxj0f.cloudfront.net/310519663648530884/PmHnVUFzGQDDX3pqUCUnTv/typical-sword-hero-palette-Q2RhvpKrPnVsr7uXDj5Nzo.webp",
+  forgeBg:
+    "https://d2xsxph8kpxj0f.cloudfront.net/310519663648530884/PmHnVUFzGQDDX3pqUCUnTv/typical-forge-background-palette-hbK8AJzUnjsxwSCEj2VzrZ.webp",
+  monster:
+    "https://d2xsxph8kpxj0f.cloudfront.net/310519663648530884/PmHnVUFzGQDDX3pqUCUnTv/typical-monster-silhouette-palette-oWYQckyb3XXQhrpmT6Rqnn.webp",
+  boss:
+    "https://d2xsxph8kpxj0f.cloudfront.net/310519663648530884/PmHnVUFzGQDDX3pqUCUnTv/typical-boss-core-palette-fAQNsGiGS8P5FhfXgjiEXQ.webp",
+};
+
+const STORAGE_KEY = "typical-sword-game:v1";
+const SECOND = 1000;
+const OFFLINE_CAP_HOURS = 12;
+const ENDING_PRESTIGE_REQUIREMENT = 3;
+
+const REGIONS = [
+  {
+    id: "ash_forest",
+    name: "잿빛 숲",
+    short: "FOREST",
+    unlock: "기본 해금",
+    requiredEnhance: 0,
+    requiredLevel: 1,
+    baseHp: 65,
+    hpGrowth: 1.15,
+    gold: 22,
+    exp: 10,
+    material: "scraps",
+    materialName: "금속 파편",
+    materialChance: 0.42,
+    bossEvery: 15,
+  },
+  {
+    id: "mine_corridor",
+    name: "폐광 회랑",
+    short: "MINE",
+    unlock: "+10 검 또는 Lv.8",
+    requiredEnhance: 10,
+    requiredLevel: 8,
+    baseHp: 320,
+    hpGrowth: 1.18,
+    gold: 84,
+    exp: 32,
+    material: "ore",
+    materialName: "철광석",
+    materialChance: 0.34,
+    bossEvery: 20,
+  },
+  {
+    id: "red_citadel",
+    name: "붉은 성채",
+    short: "CITADEL",
+    unlock: "+18 검 또는 Lv.18",
+    requiredEnhance: 18,
+    requiredLevel: 18,
+    baseHp: 1700,
+    hpGrowth: 1.2,
+    gold: 360,
+    exp: 96,
+    material: "soul",
+    materialName: "영혼 결정",
+    materialChance: 0.24,
+    bossEvery: 25,
+  },
+  {
+    id: "frost_rift",
+    name: "서리 협곡",
+    short: "RIFT",
+    unlock: "+28 검 또는 Lv.35",
+    requiredEnhance: 28,
+    requiredLevel: 35,
+    baseHp: 9200,
+    hpGrowth: 1.22,
+    gold: 1450,
+    exp: 260,
+    material: "frost",
+    materialName: "냉각 결정",
+    materialChance: 0.18,
+    bossEvery: 30,
+  },
+  {
+    id: "abyss_forge",
+    name: "심연 제련소",
+    short: "ABYSS",
+    unlock: "+40 검 또는 명성 1",
+    requiredEnhance: 40,
+    requiredLevel: 45,
+    prestigeRequired: 1,
+    baseHp: 58000,
+    hpGrowth: 1.24,
+    gold: 7200,
+    exp: 820,
+    material: "abyssCore",
+    materialName: "심연핵",
+    materialChance: 0.1,
+    bossEvery: 35,
+  },
+  {
+    id: "nameless_throne",
+    name: "무명의 왕좌",
+    short: "THRONE",
+    unlock: "+50 검, Lv.60, 명성 3",
+    requiredEnhance: 50,
+    requiredLevel: 60,
+    prestigeRequired: 3,
+    baseHp: 820000,
+    hpGrowth: 1.28,
+    gold: 50000,
+    exp: 5200,
+    material: "abyssCore",
+    materialName: "심연핵",
+    materialChance: 0.2,
+    bossEvery: 1,
+    final: true,
+  },
+] as const;
+
+type RegionId = (typeof REGIONS)[number]["id"];
+type MaterialKey = "scraps" | "ore" | "soul" | "frost" | "abyssCore";
+type TabKey = "forge" | "battle" | "market" | "craft" | "traits" | "prestige";
+type TraitBranch = "smith" | "hunter" | "merchant";
+
+type LogTone = "cyan" | "gold" | "orange" | "pink" | "neutral";
+
+type GameLog = {
+  id: number;
+  text: string;
+  tone: LogTone;
+};
+
+type Traits = Record<TraitBranch, number>;
+
+type Inventory = Record<MaterialKey, number> & {
+  guards: number;
+  stabilizers: number;
+  warpTickets: number;
+};
+
+type GameState = {
+  gold: number;
+  level: number;
+  exp: number;
+  enhance: number;
+  bestEnhance: number;
+  swordsSold: number;
+  monstersKilled: number;
+  bossesKilled: number;
+  regionId: RegionId;
+  regionStep: number;
+  monsterHp: number;
+  inventory: Inventory;
+  traits: Traits;
+  prestige: number;
+  prestigeStones: number;
+  totalPrestigeStones: number;
+  endingSeen: boolean;
+  lastSavedAt: number;
+  createdAt: number;
+};
+
+type Derived = {
+  attack: number;
+  dps: number;
+  clickDamage: number;
+  saleValue: number;
+  upgradeCost: number;
+  successRate: number;
+  destroyRate: number;
+  expToNext: number;
+  traitPointsEarned: number;
+  traitPointsSpent: number;
+  traitPointsAvailable: number;
+  currentRegion: (typeof REGIONS)[number];
+  monsterMaxHp: number;
+  isBoss: boolean;
+};
+
+const MATERIAL_LABELS: Record<MaterialKey, string> = {
+  scraps: "금속 파편",
+  ore: "철광석",
+  soul: "영혼 결정",
+  frost: "냉각 결정",
+  abyssCore: "심연핵",
+};
+
+const TRAIT_INFO: Record<
+  TraitBranch,
+  {
+    label: string;
+    icon: typeof Hammer;
+    tone: LogTone;
+    summary: string;
+    nodes: string[];
+  }
+> = {
+  smith: {
+    label: "대장장이",
+    icon: Hammer,
+    tone: "cyan",
+    summary: "강화 비용과 실패 리스크를 줄입니다.",
+    nodes: ["정밀 담금질", "균열 감지", "안정화 각인", "고대 제련법"],
+  },
+  hunter: {
+    label: "사냥꾼",
+    icon: Target,
+    tone: "orange",
+    summary: "전투 피해량, 경험치, 드롭률을 높입니다.",
+    nodes: ["약점 간파", "전리품 추적", "보스 해체", "심연 추적자"],
+  },
+  merchant: {
+    label: "상인",
+    icon: CircleDollarSign,
+    tone: "gold",
+    summary: "판매가, 상점 할인, 방치 보상을 강화합니다.",
+    nodes: ["감정가", "도매 계약", "자동 정산", "명성 회계"],
+  },
+};
+
+const initialState = (): GameState => ({
+  gold: 450,
+  level: 1,
+  exp: 0,
+  enhance: 0,
+  bestEnhance: 0,
+  swordsSold: 0,
+  monstersKilled: 0,
+  bossesKilled: 0,
+  regionId: "ash_forest",
+  regionStep: 1,
+  monsterHp: 65,
+  inventory: {
+    scraps: 0,
+    ore: 0,
+    soul: 0,
+    frost: 0,
+    abyssCore: 0,
+    guards: 1,
+    stabilizers: 1,
+    warpTickets: 0,
+  },
+  traits: {
+    smith: 0,
+    hunter: 0,
+    merchant: 0,
+  },
+  prestige: 0,
+  prestigeStones: 0,
+  totalPrestigeStones: 0,
+  endingSeen: false,
+  lastSavedAt: Date.now(),
+  createdAt: Date.now(),
+});
+
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function compact(value: number) {
+  if (!Number.isFinite(value)) return "0";
+  if (value < 1000) return Math.floor(value).toLocaleString("ko-KR");
+  const units = ["", "K", "M", "B", "T", "Qa", "Qi"];
+  let v = value;
+  let unit = 0;
+  while (v >= 1000 && unit < units.length - 1) {
+    v /= 1000;
+    unit += 1;
+  }
+  return `${v >= 100 ? v.toFixed(0) : v >= 10 ? v.toFixed(1) : v.toFixed(2)}${units[unit]}`;
+}
+
+function pct(value: number) {
+  return `${clamp(value, 0, 100).toFixed(value < 10 ? 1 : 0)}%`;
+}
+
+function getRegion(id: RegionId) {
+  return REGIONS.find((region) => region.id === id) ?? REGIONS[0];
+}
+
+function regionPrestigeRequired(region: (typeof REGIONS)[number]) {
+  return "prestigeRequired" in region ? region.prestigeRequired : 0;
+}
+
+function isFinalRegion(region: (typeof REGIONS)[number]) {
+  return "final" in region && region.final === true;
+}
+
+function isRegionUnlocked(region: (typeof REGIONS)[number], state: GameState) {
+  const enhanceOk = state.enhance >= region.requiredEnhance;
+  const levelOk = state.level >= region.requiredLevel;
+  const prestigeRequired = regionPrestigeRequired(region);
+  const prestigeOk = !prestigeRequired || state.prestige >= prestigeRequired;
+  if (isFinalRegion(region)) {
+    return (
+      state.enhance >= 50 &&
+      state.level >= 60 &&
+      state.prestige >= ENDING_PRESTIGE_REQUIREMENT &&
+      state.inventory.abyssCore >= 10
+    );
+  }
+  return prestigeOk && (enhanceOk || levelOk);
+}
+
+function getMonsterMaxHp(state: GameState, region = getRegion(state.regionId)) {
+  const bossMultiplier = state.regionStep % region.bossEvery === 0 ? 8.5 + state.prestige * 1.2 : 1;
+  return Math.floor(region.baseHp * Math.pow(region.hpGrowth, state.regionStep - 1) * bossMultiplier);
+}
+
+function derive(state: GameState): Derived {
+  const currentRegion = getRegion(state.regionId);
+  const prestigeMultiplier = 1 + state.totalPrestigeStones * 0.035 + state.prestige * 0.08;
+  const attack = Math.floor(10 * Math.pow(1.24, state.enhance) * prestigeMultiplier * (1 + state.traits.hunter * 0.035));
+  const dps = Math.floor(attack * (0.5 + state.level * 0.015) * (1 + state.traits.hunter * 0.045));
+  const clickDamage = Math.max(1, Math.floor(attack * (0.4 + state.traits.hunter * 0.012)));
+  const saleValue = Math.floor((120 + Math.pow(1.36, state.enhance) * 55) * (1 + state.traits.merchant * 0.055));
+  const upgradeCost = Math.floor(120 * Math.pow(1.42, state.enhance) * (1 - clamp(state.traits.smith * 0.012, 0, 0.3)));
+  const baseRate =
+    state.enhance < 10
+      ? 95 - state.enhance * 2.8
+      : state.enhance < 20
+        ? 68 - (state.enhance - 10) * 2.8
+        : state.enhance < 30
+          ? 40 - (state.enhance - 20) * 1.8
+          : state.enhance < 40
+            ? 20 - (state.enhance - 30) * 1.0
+            : 9 - (state.enhance - 40) * 0.6;
+  const successRate = clamp(baseRate + state.traits.smith * 0.75 + state.prestigeStones * 0.05, 1.5, 97);
+  const destroyRate =
+    state.enhance < 10 ? 0 : state.enhance < 20 ? 35 : state.enhance < 30 ? 54 : state.enhance < 40 ? 72 : 86;
+  const expToNext = Math.floor(80 * Math.pow(1.21, state.level - 1));
+  const traitPointsEarned = Math.max(0, state.level - 1) + state.prestige * 2;
+  const traitPointsSpent = state.traits.smith + state.traits.hunter + state.traits.merchant;
+  const traitPointsAvailable = traitPointsEarned - traitPointsSpent;
+  const monsterMaxHp = getMonsterMaxHp(state, currentRegion);
+  return {
+    attack,
+    dps,
+    clickDamage,
+    saleValue,
+    upgradeCost,
+    successRate,
+    destroyRate,
+    expToNext,
+    traitPointsEarned,
+    traitPointsSpent,
+    traitPointsAvailable,
+    currentRegion,
+    monsterMaxHp,
+    isBoss: state.regionStep % currentRegion.bossEvery === 0,
+  };
+}
+
+function normalizeLoadedState(raw: unknown): GameState | null {
+  if (!raw || typeof raw !== "object") return null;
+  const state = raw as Partial<GameState>;
+  const base = initialState();
+  return {
+    ...base,
+    ...state,
+    inventory: { ...base.inventory, ...(state.inventory ?? {}) },
+    traits: { ...base.traits, ...(state.traits ?? {}) },
+    regionId: REGIONS.some((region) => region.id === state.regionId) ? (state.regionId as RegionId) : base.regionId,
+  };
+}
+
+function calculateKillRewards(state: GameState, derived = derive(state)) {
+  const region = derived.currentRegion;
+  const boss = derived.isBoss;
+  const gold = Math.floor(region.gold * (1 + state.regionStep * 0.035) * (boss ? 7 : 1) * (1 + state.traits.merchant * 0.018));
+  const exp = Math.floor(region.exp * (1 + state.regionStep * 0.025) * (boss ? 5 : 1) * (1 + state.traits.hunter * 0.018));
+  const materialRollChance = clamp(region.materialChance + state.traits.hunter * 0.006 + (boss ? 0.35 : 0), 0, 0.95);
+  const materialAmount = boss ? 2 + Math.floor(state.regionStep / 25) : 1;
+  return { gold, exp, materialKey: region.material as MaterialKey, materialAmount, materialRollChance, boss };
+}
+
+function awardExperience(draft: GameState, exp: number) {
+  draft.exp += exp;
+  let leveled = 0;
+  while (draft.exp >= Math.floor(80 * Math.pow(1.21, draft.level - 1))) {
+    const needed = Math.floor(80 * Math.pow(1.21, draft.level - 1));
+    draft.exp -= needed;
+    draft.level += 1;
+    draft.gold += 75 + draft.level * 18;
+    leveled += 1;
+  }
+  return leveled;
+}
+
+function addLog(logs: GameLog[], text: string, tone: LogTone = "neutral") {
+  return [{ id: Date.now() + Math.random(), text, tone }, ...logs].slice(0, 14);
+}
+
+function ProgressBar({ value, tone = "cyan" }: { value: number; tone?: LogTone }) {
+  return (
+    <div className="meter" aria-hidden="true">
+      <div className={`meter-fill tone-${tone}`} style={{ width: `${clamp(value, 0, 100)}%` }} />
+    </div>
+  );
+}
+
+function StatCard({ label, value, hint, tone = "neutral" }: { label: string; value: string; hint?: string; tone?: LogTone }) {
+  return (
+    <div className={`stat-card tone-border-${tone}`}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+      {hint ? <small>{hint}</small> : null}
+    </div>
+  );
+}
+
+function SectionTitle({ icon: Icon, title, eyebrow }: { icon: typeof Sword; title: string; eyebrow?: string }) {
+  return (
+    <div className="section-title">
+      <div className="section-title-icon">
+        <Icon size={17} />
+      </div>
+      <div>
+        {eyebrow ? <span>{eyebrow}</span> : null}
+        <h2>{title}</h2>
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
-  // If theme is switchable in App.tsx, we can implement theme toggling like this:
-  // const { theme, toggleTheme } = useTheme();
+  const [state, setState] = useState<GameState>(() => initialState());
+  const [activeTab, setActiveTab] = useState<TabKey>("forge");
+  const [logs, setLogs] = useState<GameLog[]>([
+    { id: 1, text: "제련 콘솔이 초기화되었습니다. +50 검과 무명의 왕좌가 최종 목표입니다.", tone: "cyan" },
+  ]);
+  const [offlineSummary, setOfflineSummary] = useState<string | null>(null);
+  const [dangerMode, setDangerMode] = useState(false);
+  const initialized = useRef(false);
+  const derived = useMemo(() => derive(state), [state]);
+
+  useEffect(() => {
+    if (initialized.current) return;
+    initialized.current = true;
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (!saved) return;
+    try {
+      const parsed = normalizeLoadedState(JSON.parse(saved));
+      if (!parsed) return;
+      const now = Date.now();
+      const elapsedSeconds = Math.floor((now - (parsed.lastSavedAt || now)) / 1000);
+      const capSeconds = Math.floor(OFFLINE_CAP_HOURS * 3600 * (1 + parsed.traits.merchant * 0.015));
+      const appliedSeconds = clamp(elapsedSeconds, 0, capSeconds);
+      if (appliedSeconds > 10) {
+        const d = derive(parsed);
+        const killSeconds = Math.max(2.5, getMonsterMaxHp(parsed) / Math.max(1, d.dps));
+        const kills = Math.floor(appliedSeconds / killSeconds);
+        if (kills > 0) {
+          const reward = calculateKillRewards(parsed, d);
+          parsed.gold += Math.floor(reward.gold * kills * 0.72);
+          const leveled = awardExperience(parsed, Math.floor(reward.exp * kills * 0.65));
+          parsed.monstersKilled += kills;
+          const materialDrops = Math.floor(kills * reward.materialRollChance * 0.45);
+          parsed.inventory[reward.materialKey] += materialDrops;
+          setOfflineSummary(
+            `${Math.floor(appliedSeconds / 60).toLocaleString("ko-KR")}분 동안 몬스터 ${kills.toLocaleString(
+              "ko-KR",
+            )}체를 처리하고 ${compact(reward.gold * kills * 0.72)}G, ${compact(reward.exp * kills * 0.65)}EXP를 회수했습니다.`,
+          );
+          setLogs((prev) =>
+            addLog(
+              prev,
+              `오프라인 정산: ${kills.toLocaleString("ko-KR")}체 처치, 재료 ${materialDrops.toLocaleString("ko-KR")}개 회수${
+                leveled ? `, Lv.${parsed.level} 도달` : ""
+              }`,
+              "gold",
+            ),
+          );
+        }
+      }
+      parsed.lastSavedAt = now;
+      parsed.monsterHp = clamp(parsed.monsterHp || getMonsterMaxHp(parsed), 1, getMonsterMaxHp(parsed));
+      setState(parsed);
+    } catch {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setState((prev) => {
+        const d = derive(prev);
+        if (isFinalRegion(d.currentRegion) && prev.endingSeen) return { ...prev, lastSavedAt: Date.now() };
+        let next: GameState = { ...prev, inventory: { ...prev.inventory }, traits: { ...prev.traits } };
+        next.monsterHp -= d.dps;
+        let killCount = 0;
+        let goldGain = 0;
+        let expGain = 0;
+        let materialGain = 0;
+        let bossKilled = false;
+
+        while (next.monsterHp <= 0 && killCount < 25) {
+          const liveDerived = derive(next);
+          const reward = calculateKillRewards(next, liveDerived);
+          killCount += 1;
+          goldGain += reward.gold;
+          expGain += reward.exp;
+          if (Math.random() < reward.materialRollChance) {
+            next.inventory[reward.materialKey] += reward.materialAmount;
+            materialGain += reward.materialAmount;
+          }
+          if (reward.boss) {
+            next.bossesKilled += 1;
+            bossKilled = true;
+            if (Math.random() < 0.32) next.inventory.stabilizers += 1;
+            if (next.regionId === "mine_corridor") next.inventory.guards += 1;
+            if (next.regionId === "abyss_forge") next.inventory.abyssCore += 1;
+          }
+          next.monstersKilled += 1;
+          next.regionStep += 1;
+          const nextMax = getMonsterMaxHp(next);
+          next.monsterHp += nextMax;
+        }
+
+        if (killCount > 0) {
+          next.gold += goldGain;
+          awardExperience(next, expGain);
+          if (bossKilled) {
+            setLogs((prevLogs) => addLog(prevLogs, `보스 격파: ${d.currentRegion.name}의 방어선이 붕괴되었습니다.`, "orange"));
+          } else if (killCount >= 3) {
+            setLogs((prevLogs) => addLog(prevLogs, `자동 전투: ${killCount}체 처치, ${compact(goldGain)}G 회수`, "cyan"));
+          }
+          if (materialGain > 0 && Math.random() < 0.35) {
+            setLogs((prevLogs) => addLog(prevLogs, `${d.currentRegion.materialName} ${materialGain}개를 회수했습니다.`, "gold"));
+          }
+        }
+
+        const finalUnlocked = isRegionUnlocked(REGIONS[5], next);
+        if (finalUnlocked && next.regionId === "nameless_throne" && next.regionStep > 1 && !next.endingSeen) {
+          next.endingSeen = true;
+          setLogs((prevLogs) => addLog(prevLogs, "엔딩 도달: 무명의 왕좌가 침묵했습니다.", "gold"));
+          toast.success("엔딩 도달", { description: "무명의 왕좌를 제압했습니다. 하지만 명성 루프는 계속됩니다." });
+        }
+        next.lastSavedAt = Date.now();
+        return next;
+      });
+    }, SECOND);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const saveTimer = window.setInterval(() => {
+      setState((prev) => {
+        const next = { ...prev, lastSavedAt: Date.now() };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        return next;
+      });
+    }, 5000);
+    return () => window.clearInterval(saveTimer);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...state, lastSavedAt: Date.now() }));
+  }, [state]);
+
+  const hpPercent = (state.monsterHp / derived.monsterMaxHp) * 100;
+  const expPercent = (state.exp / derived.expToNext) * 100;
+  const nextMilestone = useMemo(() => {
+    if (state.enhance < 10) return "+10 검 제작과 폐광 회랑 해금";
+    if (state.level < 18) return "Lv.18 달성 또는 +18 검으로 붉은 성채 개방";
+    if (state.enhance < 28) return "+28 검과 서리 협곡 진입";
+    if (state.prestige < 1) return "서리 협곡 보스 처치 후 첫 명성 준비";
+    if (state.enhance < 40) return "+40 검으로 심연 제련소 진입";
+    if (state.prestige < ENDING_PRESTIGE_REQUIREMENT) return `명성 ${ENDING_PRESTIGE_REQUIREMENT}회 달성`;
+    if (state.enhance < 50) return "+50 최종 검 제작";
+    if (state.inventory.abyssCore < 10) return "심연핵 10개 확보";
+    return "무명의 왕좌 최종 보스 처치";
+  }, [state.enhance, state.inventory.abyssCore, state.level, state.prestige]);
+
+  function mutate(mutator: (draft: GameState) => string | void, tone: LogTone = "neutral") {
+    setState((prev) => {
+      const draft: GameState = { ...prev, inventory: { ...prev.inventory }, traits: { ...prev.traits } };
+      const message = mutator(draft);
+      draft.lastSavedAt = Date.now();
+      if (message) setLogs((old) => addLog(old, message, tone));
+      return draft;
+    });
+  }
+
+  function enhanceSword(useGuard = false, useStabilizer = false) {
+    mutate((draft) => {
+      const d = derive(draft);
+      if (draft.enhance >= 50) return "이미 +50 최종 검입니다. 이제 무명의 왕좌를 노리십시오.";
+      if (draft.gold < d.upgradeCost) {
+        toast.error("골드 부족", { description: `${compact(d.upgradeCost)}G가 필요합니다.` });
+        return;
+      }
+      if (useGuard && draft.inventory.guards <= 0) return "방지권이 부족합니다.";
+      if (useStabilizer && draft.inventory.stabilizers <= 0) return "안정화석이 부족합니다.";
+      draft.gold -= d.upgradeCost;
+      if (useGuard) draft.inventory.guards -= 1;
+      if (useStabilizer) draft.inventory.stabilizers -= 1;
+      const stabilizerBonus = useStabilizer ? (draft.enhance >= 35 ? 5 : 9) : 0;
+      const finalRate = clamp(d.successRate + stabilizerBonus, 1, 98);
+      const success = Math.random() * 100 < finalRate;
+      if (success) {
+        draft.enhance += 1;
+        draft.bestEnhance = Math.max(draft.bestEnhance, draft.enhance);
+        draft.inventory.scraps += draft.enhance >= 20 ? 1 : 0;
+        setDangerMode(false);
+        toast.success(`강화 성공: +${draft.enhance}`, { description: `공격력이 ${compact(derive(draft).attack)}로 상승했습니다.` });
+        return `강화 성공: 검이 +${draft.enhance} 단계에 도달했습니다.`;
+      }
+      const destroyed = draft.enhance >= 10 && Math.random() * 100 < d.destroyRate;
+      const saved = destroyed && useGuard;
+      draft.inventory.scraps += Math.max(1, Math.floor(draft.enhance / 3));
+      if (destroyed && !saved) {
+        const previous = draft.enhance;
+        draft.enhance = Math.max(0, Math.floor(draft.enhance * 0.18));
+        draft.monsterHp = Math.min(draft.monsterHp, getMonsterMaxHp(draft));
+        setDangerMode(true);
+        toast.error("검 파괴", { description: `+${previous} 검이 손상되어 +${draft.enhance}로 복원되었습니다.` });
+        return `강화 실패 및 파괴: +${previous} → +${draft.enhance}. 파편을 회수했습니다.`;
+      }
+      setDangerMode(true);
+      return saved ? "강화 실패: 방지권이 파괴를 막았습니다." : "강화 실패: 파편을 회수했습니다.";
+    }, "pink");
+  }
+
+  function manualAttack() {
+    mutate((draft) => {
+      const d = derive(draft);
+      draft.monsterHp -= d.clickDamage;
+      if (draft.monsterHp <= 0) {
+        const reward = calculateKillRewards(draft, d);
+        draft.gold += reward.gold;
+        awardExperience(draft, reward.exp);
+        draft.monstersKilled += 1;
+        if (Math.random() < reward.materialRollChance) draft.inventory[reward.materialKey] += reward.materialAmount;
+        if (reward.boss) draft.bossesKilled += 1;
+        draft.regionStep += 1;
+        draft.monsterHp += getMonsterMaxHp(draft);
+        return `${reward.boss ? "보스" : "몬스터"} 직접 처치: ${compact(reward.gold)}G와 ${compact(reward.exp)}EXP 획득`;
+      }
+    }, "cyan");
+  }
+
+  function sellSword() {
+    mutate((draft) => {
+      const d = derive(draft);
+      if (draft.enhance <= 0) return "판매할 가치가 있는 강화 검이 없습니다.";
+      draft.gold += d.saleValue;
+      draft.inventory.scraps += Math.max(1, Math.floor(draft.enhance / 2));
+      draft.swordsSold += 1;
+      const soldLevel = draft.enhance;
+      draft.enhance = 0;
+      draft.monsterHp = Math.min(draft.monsterHp, getMonsterMaxHp(draft));
+      toast("검 판매 완료", { description: `${compact(d.saleValue)}G와 파편을 받았습니다.` });
+      return `+${soldLevel} 검을 ${compact(d.saleValue)}G에 판매했습니다.`;
+    }, "gold");
+  }
+
+  function buyItem(item: "guard" | "stabilizer" | "warp") {
+    mutate((draft) => {
+      const discount = 1 - clamp(draft.traits.merchant * 0.01, 0, 0.25);
+      const price = item === "guard" ? Math.floor(2200 * discount) : item === "stabilizer" ? Math.floor(1400 * discount) : Math.floor(4800 * discount);
+      if (draft.gold < price) return "상점 구매에 필요한 골드가 부족합니다.";
+      draft.gold -= price;
+      if (item === "guard") draft.inventory.guards += 1;
+      if (item === "stabilizer") draft.inventory.stabilizers += 1;
+      if (item === "warp") draft.inventory.warpTickets += 1;
+      return `${item === "guard" ? "방지권" : item === "stabilizer" ? "안정화석" : "워프권"}을 구매했습니다.`;
+    }, "gold");
+  }
+
+  function craft(recipe: "guard" | "stabilizer" | "warp") {
+    mutate((draft) => {
+      if (recipe === "guard") {
+        if (draft.inventory.scraps < 28 || draft.inventory.ore < 5) return "방지권 제작에는 금속 파편 28개와 철광석 5개가 필요합니다.";
+        draft.inventory.scraps -= 28;
+        draft.inventory.ore -= 5;
+        draft.inventory.guards += 1;
+        return "조합 완료: 방지권 1개 제작";
+      }
+      if (recipe === "stabilizer") {
+        if (draft.inventory.scraps < 18 || draft.inventory.soul < 3) return "안정화석 제작에는 금속 파편 18개와 영혼 결정 3개가 필요합니다.";
+        draft.inventory.scraps -= 18;
+        draft.inventory.soul -= 3;
+        draft.inventory.stabilizers += 1;
+        return "조합 완료: 안정화석 1개 제작";
+      }
+      if (draft.inventory.ore < 18 || draft.inventory.frost < 4) return "워프권 제작에는 철광석 18개와 냉각 결정 4개가 필요합니다.";
+      draft.inventory.ore -= 18;
+      draft.inventory.frost -= 4;
+      draft.inventory.warpTickets += 1;
+      return "조합 완료: 워프권 1개 제작";
+    }, "cyan");
+  }
+
+  function investTrait(branch: TraitBranch) {
+    mutate((draft) => {
+      const d = derive(draft);
+      const current = draft.traits[branch];
+      const cost = 1 + Math.floor(current / 5);
+      if (d.traitPointsAvailable < cost) return `특성 포인트가 부족합니다. 필요 포인트: ${cost}`;
+      if (current >= 30) return "해당 특성 트리는 이미 최대 단계입니다.";
+      draft.traits[branch] += 1;
+      return `${TRAIT_INFO[branch].label} 특성 +1. 현재 ${draft.traits[branch]}단계입니다.`;
+    }, TRAIT_INFO[branch].tone);
+  }
+
+  function switchRegion(regionId: RegionId) {
+    mutate((draft) => {
+      const region = getRegion(regionId);
+      if (!isRegionUnlocked(region, draft)) return `${region.name}은 아직 잠겨 있습니다. 조건: ${region.unlock}`;
+      draft.regionId = regionId;
+      draft.regionStep = Math.max(1, Math.min(draft.regionStep, 5));
+      draft.monsterHp = getMonsterMaxHp(draft, region);
+      return `전투 지역 변경: ${region.name}`;
+    }, "cyan");
+  }
+
+  function useWarp() {
+    mutate((draft) => {
+      if (draft.inventory.warpTickets <= 0) return "워프권이 없습니다.";
+      draft.inventory.warpTickets -= 1;
+      draft.regionStep += 5;
+      draft.monsterHp = getMonsterMaxHp(draft);
+      return "워프권 사용: 현재 지역 진행도가 5단계 상승했습니다.";
+    }, "cyan");
+  }
+
+  function prestigeReset() {
+    mutate((draft) => {
+      const canPrestige = draft.enhance >= 32 && draft.level >= 35 && draft.bossesKilled >= 5;
+      if (!canPrestige) return "명성 조건이 부족합니다. +32 검, Lv.35, 보스 처치 5회가 필요합니다.";
+      const gained = Math.max(1, Math.floor((draft.bestEnhance - 25) / 4) + Math.floor(draft.level / 25));
+      const keepTraits = draft.traits;
+      const keepCreatedAt = draft.createdAt;
+      const next = initialState();
+      Object.assign(draft, next, {
+        gold: 900 + gained * 300,
+        level: 1,
+        exp: 0,
+        enhance: 0,
+        bestEnhance: 0,
+        prestige: draft.prestige + 1,
+        prestigeStones: draft.prestigeStones + gained,
+        totalPrestigeStones: draft.totalPrestigeStones + gained,
+        traits: keepTraits,
+        createdAt: keepCreatedAt,
+        inventory: {
+          ...next.inventory,
+          guards: 1 + Math.floor(gained / 2),
+          stabilizers: 1 + gained,
+          scraps: gained * 12,
+          ore: gained * 3,
+          soul: 0,
+          frost: 0,
+          abyssCore: 0,
+          warpTickets: 0,
+        },
+      });
+      toast.success("명성 완료", { description: `명성석 ${gained}개를 획득했습니다.` });
+      return `명성 완료: 영구 보너스 자원 ${gained}개 획득. 더 긴 회차가 시작됩니다.`;
+    }, "gold");
+  }
+
+  function resetGame() {
+    const ok = window.confirm("정말 모든 진행을 초기화할까요? 이 작업은 되돌릴 수 없습니다.");
+    if (!ok) return;
+    const fresh = initialState();
+    setState(fresh);
+    setLogs([{ id: Date.now(), text: "새 제련 기록이 시작되었습니다.", tone: "cyan" }]);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(fresh));
+  }
+
+  const finalUnlocked = isRegionUnlocked(REGIONS[5], state);
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <main>
-        {/* Example: lucide-react for icons */}
-        <Loader2 className="animate-spin" />
-        Example Page
-        {/* Example: Streamdown for markdown rendering */}
-        <Streamdown>Any **markdown** content</Streamdown>
-        <Button variant="default">Example Button</Button>
-      </main>
+    <main className={`game-shell ${dangerMode ? "danger-mode" : ""}`}>
+      <div className="background-plate" style={{ backgroundImage: `url(${ASSETS.forgeBg})` }} />
+      <header className="topbar">
+        <div className="brand-block">
+          <div className="brand-mark"><Sword size={18} /></div>
+          <div>
+            <p>Typical Sword Game</p>
+            <h1>검 강화 제련 콘솔</h1>
+          </div>
+        </div>
+        <div className="topbar-actions">
+          <span className="system-pill"><Activity size={14} /> 자동 전투 가동 중</span>
+          <button className="ghost-button" onClick={resetGame}><RotateCcw size={15} /> 초기화</button>
+        </div>
+      </header>
+
+      {offlineSummary ? (
+        <section className="offline-panel">
+          <Clock3 size={18} />
+          <div>
+            <strong>오프라인 보상 정산</strong>
+            <p>{offlineSummary}</p>
+          </div>
+          <button onClick={() => setOfflineSummary(null)}>확인</button>
+        </section>
+      ) : null}
+
+      <section className="hero-console">
+        <div className="hero-copy">
+          <span className="eyebrow">GEIST FORGE / RESTRICTED PALETTE</span>
+          <h2><span>강화 리스크가</span><span>전투 성장으로</span><span>돌아오는 방치형 RPG</span></h2>
+          <p>
+            현재 목표는 <strong>{nextMilestone}</strong>입니다. 검을 강화하면 판매가와 전투력이 동시에 오르고,
+            몬스터 처치 보상은 다음 강화와 특성 트리 투자로 되돌아옵니다.
+          </p>
+          <div className="hero-actions">
+            <button className="primary-button" onClick={() => enhanceSword(false, false)}><Hammer size={17} /> 기본 강화</button>
+            <button className="secondary-button" onClick={manualAttack}><Sword size={17} /> 직접 공격</button>
+          </div>
+        </div>
+        <div className="hero-visual">
+          <img src={ASSETS.swordHero} alt="정밀 강화 검" />
+          <div className="scanline" />
+        </div>
+      </section>
+
+      <section className="stat-grid">
+        <StatCard label="골드" value={`${compact(state.gold)}G`} hint="판매·전투 수익" tone="gold" />
+        <StatCard label="검 강화" value={`+${state.enhance}`} hint={`최고 +${state.bestEnhance}`} tone={state.enhance >= 35 ? "orange" : "cyan"} />
+        <StatCard label="공격력" value={compact(derived.attack)} hint={`${compact(derived.dps)} DPS`} tone="cyan" />
+        <StatCard label="플레이어" value={`Lv.${state.level}`} hint={`${pct(expPercent)} 다음 레벨`} tone="neutral" />
+        <StatCard label="명성" value={`${state.prestige}회`} hint={`석 ${state.prestigeStones}개`} tone="gold" />
+        <StatCard label="처치" value={compact(state.monstersKilled)} hint={`보스 ${state.bossesKilled}회`} tone="orange" />
+      </section>
+
+      <section className="main-grid">
+        <aside className="left-stack">
+          <div className="panel sword-panel">
+            <SectionTitle icon={Sword} title="현재 검" eyebrow="FORGE STATUS" />
+            <div className="sword-level-row">
+              <strong>+{state.enhance}</strong>
+              <div>
+                <span>공격력 {compact(derived.attack)}</span>
+                <ProgressBar value={derived.successRate} tone={state.enhance >= 30 ? "orange" : "cyan"} />
+                <small>다음 강화 성공률 {pct(derived.successRate)} · 비용 {compact(derived.upgradeCost)}G</small>
+              </div>
+            </div>
+            <div className="quick-actions">
+              <button onClick={() => enhanceSword(false, false)} disabled={state.gold < derived.upgradeCost}>강화</button>
+              <button onClick={() => enhanceSword(true, false)} disabled={state.inventory.guards <= 0 || state.gold < derived.upgradeCost}>방지 강화</button>
+              <button onClick={() => enhanceSword(false, true)} disabled={state.inventory.stabilizers <= 0 || state.gold < derived.upgradeCost}>안정화</button>
+              <button onClick={sellSword} disabled={state.enhance <= 0}>판매</button>
+            </div>
+          </div>
+
+          <div className="panel battle-panel">
+            <SectionTitle icon={Skull} title="몬스터 전투" eyebrow={derived.currentRegion.short} />
+            <div className="monster-card">
+              <img src={isFinalRegion(derived.currentRegion) ? ASSETS.boss : ASSETS.monster} alt="현재 몬스터" />
+              <div className="monster-info">
+                <span>{derived.isBoss || isFinalRegion(derived.currentRegion) ? "보스 개체" : "일반 개체"}</span>
+                <h3>{isFinalRegion(derived.currentRegion) ? "무명의 왕좌" : `${derived.currentRegion.name} #${state.regionStep}`}</h3>
+                <ProgressBar value={hpPercent} tone={derived.isBoss ? "orange" : "cyan"} />
+                <small>{compact(Math.max(0, state.monsterHp))} / {compact(derived.monsterMaxHp)} HP</small>
+              </div>
+            </div>
+            <button className="wide-action" onClick={manualAttack}><Target size={16} /> 직접 공격 +{compact(derived.clickDamage)}</button>
+          </div>
+
+          <div className="panel log-panel">
+            <SectionTitle icon={History} title="제련 기록" eyebrow="EVENT LOG" />
+            <div className="logs">
+              {logs.map((log) => (
+                <p key={log.id} className={`log tone-text-${log.tone}`}>{log.text}</p>
+              ))}
+            </div>
+          </div>
+        </aside>
+
+        <section className="right-console">
+          <nav className="tabbar" aria-label="게임 메뉴">
+            {[
+              ["forge", Hammer, "강화"],
+              ["battle", Skull, "지역"],
+              ["market", ShoppingCart, "상점"],
+              ["craft", FlaskConical, "조합"],
+              ["traits", Sparkles, "특성"],
+              ["prestige", Trophy, "명성"],
+            ].map(([key, Icon, label]) => {
+              const TypedIcon = Icon as typeof Hammer;
+              return (
+                <button key={key as string} className={activeTab === key ? "active" : ""} onClick={() => setActiveTab(key as TabKey)}>
+                  <TypedIcon size={15} /> {label as string}
+                </button>
+              );
+            })}
+          </nav>
+
+          {activeTab === "forge" ? (
+            <div className="panel console-panel">
+              <SectionTitle icon={Hammer} title="강화실" eyebrow="UPGRADE BAY" />
+              <div className="risk-table">
+                <div><span>성공률</span><strong className="tone-text-cyan">{pct(derived.successRate)}</strong></div>
+                <div><span>파괴율</span><strong className="tone-text-pink">{state.enhance < 10 ? "0%" : pct(derived.destroyRate)}</strong></div>
+                <div><span>판매가</span><strong className="tone-text-gold">{compact(derived.saleValue)}G</strong></div>
+                <div><span>비용</span><strong>{compact(derived.upgradeCost)}G</strong></div>
+              </div>
+              <div className="strategy-card">
+                <h3>강화 판단</h3>
+                <p>
+                  +10 이후에는 파괴 위험이 생깁니다. 방지권은 파괴를 막고, 안정화석은 성공률을 보정합니다. 실패해도 파편은 조합 재료로 환원됩니다.
+                </p>
+              </div>
+            </div>
+          ) : null}
+
+          {activeTab === "battle" ? (
+            <div className="panel console-panel">
+              <SectionTitle icon={Skull} title="전투 지역" eyebrow="IDLE COMBAT" />
+              <div className="region-list">
+                {REGIONS.map((region) => {
+                  const unlocked = isRegionUnlocked(region, state);
+                  return (
+                    <button key={region.id} className={state.regionId === region.id ? "region-card active" : "region-card"} onClick={() => switchRegion(region.id)}>
+                      <div>
+                        <strong>{region.name}</strong>
+                        <span>{region.unlock}</span>
+                      </div>
+                      <small>{unlocked ? "해금" : "잠김"}</small>
+                    </button>
+                  );
+                })}
+              </div>
+              <button className="wide-action" onClick={useWarp} disabled={state.inventory.warpTickets <= 0}><Zap size={16} /> 워프권 사용 · 현재 {state.inventory.warpTickets}개</button>
+            </div>
+          ) : null}
+
+          {activeTab === "market" ? (
+            <div className="panel console-panel">
+              <SectionTitle icon={ShoppingCart} title="상점" eyebrow="CONTROLLED ECONOMY" />
+              <div className="shop-grid">
+                <ShopItem icon={ShieldCheck} title="방지권" price="2.2K G" text="강화 실패 시 파괴를 1회 방지합니다." onBuy={() => buyItem("guard")} />
+                <ShopItem icon={FlaskConical} title="안정화석" price="1.4K G" text="다음 강화 성공률을 보정합니다." onBuy={() => buyItem("stabilizer")} />
+                <ShopItem icon={ArrowUpRight} title="워프권" price="4.8K G" text="현재 지역 진행도를 빠르게 밀어 올립니다." onBuy={() => buyItem("warp")} />
+              </div>
+            </div>
+          ) : null}
+
+          {activeTab === "craft" ? (
+            <div className="panel console-panel">
+              <SectionTitle icon={FlaskConical} title="조합소" eyebrow="FAILURE RECOVERY" />
+              <InventoryGrid inventory={state.inventory} />
+              <div className="craft-list">
+                <Recipe title="방지권 제작" cost="파편 28 · 철광석 5" onClick={() => craft("guard")} />
+                <Recipe title="안정화석 제작" cost="파편 18 · 영혼 결정 3" onClick={() => craft("stabilizer")} />
+                <Recipe title="워프권 제작" cost="철광석 18 · 냉각 결정 4" onClick={() => craft("warp")} />
+              </div>
+            </div>
+          ) : null}
+
+          {activeTab === "traits" ? (
+            <div className="panel console-panel">
+              <SectionTitle icon={Sparkles} title="특성 트리" eyebrow={`${derived.traitPointsAvailable} POINTS AVAILABLE`} />
+              <div className="trait-grid">
+                {(Object.keys(TRAIT_INFO) as TraitBranch[]).map((branch) => {
+                  const info = TRAIT_INFO[branch];
+                  const Icon = info.icon;
+                  return (
+                    <div className={`trait-card tone-border-${info.tone}`} key={branch}>
+                      <div className="trait-head"><Icon size={18} /><strong>{info.label}</strong><span>{state.traits[branch]}/30</span></div>
+                      <p>{info.summary}</p>
+                      <div className="node-row">
+                        {info.nodes.map((node, index) => (
+                          <span key={node} className={state.traits[branch] >= (index + 1) * 7 ? "node active" : "node"}>{node}</span>
+                        ))}
+                      </div>
+                      <button onClick={() => investTrait(branch)}>투자</button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+
+          {activeTab === "prestige" ? (
+            <div className="panel console-panel">
+              <SectionTitle icon={Trophy} title="명성과 엔딩" eyebrow="LONG ARC" />
+              <div className="ending-grid">
+                <CheckItem done={state.enhance >= 50} text="+50 검 보유" />
+                <CheckItem done={state.level >= 60} text="플레이어 Lv.60 이상" />
+                <CheckItem done={state.prestige >= ENDING_PRESTIGE_REQUIREMENT} text="명성 3회 이상" />
+                <CheckItem done={state.inventory.abyssCore >= 10} text="심연핵 10개 보유" />
+                <CheckItem done={finalUnlocked} text="무명의 왕좌 입장 조건 충족" />
+              </div>
+              <div className="strategy-card">
+                <h3>명성 규칙</h3>
+                <p>+32 검, Lv.35, 보스 처치 5회를 넘기면 명성으로 회차를 초기화하고 영구 보너스 자원인 명성석을 얻습니다.</p>
+              </div>
+              <button className="wide-action prestige" onClick={prestigeReset}><Award size={16} /> 명성 실행</button>
+            </div>
+          ) : null}
+        </section>
+      </section>
+    </main>
+  );
+}
+
+function ShopItem({ icon: Icon, title, price, text, onBuy }: { icon: typeof Hammer; title: string; price: string; text: string; onBuy: () => void }) {
+  return (
+    <div className="shop-item">
+      <div className="shop-icon"><Icon size={18} /></div>
+      <div>
+        <strong>{title}</strong>
+        <p>{text}</p>
+        <button onClick={onBuy}><BadgePercent size={14} /> {price}</button>
+      </div>
+    </div>
+  );
+}
+
+function InventoryGrid({ inventory }: { inventory: Inventory }) {
+  const rows: Array<[string, number, typeof Boxes, LogTone]> = [
+    [MATERIAL_LABELS.scraps, inventory.scraps, Pickaxe, "neutral"],
+    [MATERIAL_LABELS.ore, inventory.ore, Boxes, "neutral"],
+    [MATERIAL_LABELS.soul, inventory.soul, Flame, "orange"],
+    [MATERIAL_LABELS.frost, inventory.frost, PackageOpen, "cyan"],
+    [MATERIAL_LABELS.abyssCore, inventory.abyssCore, Skull, "pink"],
+    ["방지권", inventory.guards, ShieldCheck, "cyan"],
+    ["안정화석", inventory.stabilizers, FlaskConical, "gold"],
+    ["워프권", inventory.warpTickets, Zap, "orange"],
+  ];
+  return (
+    <div className="inventory-grid">
+      {rows.map(([name, amount, Icon, tone]) => (
+        <div className={`inventory-item tone-border-${tone}`} key={name}>
+          <Icon size={15} />
+          <span>{name}</span>
+          <strong>{compact(amount)}</strong>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Recipe({ title, cost, onClick }: { title: string; cost: string; onClick: () => void }) {
+  return (
+    <button className="recipe" onClick={onClick}>
+      <div><strong>{title}</strong><span>{cost}</span></div>
+      <ArrowUpRight size={16} />
+    </button>
+  );
+}
+
+function CheckItem({ done, text }: { done: boolean; text: string }) {
+  return (
+    <div className={done ? "check-item done" : "check-item"}>
+      <span>{done ? "완료" : "진행"}</span>
+      <strong>{text}</strong>
     </div>
   );
 }

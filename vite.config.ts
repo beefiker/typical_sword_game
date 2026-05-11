@@ -206,6 +206,8 @@ function vitePluginStorageProxy(): Plugin {
 const plugins = [react(), tailwindcss(), jsxLocPlugin(), vitePluginManusRuntime(), vitePluginManusDebugCollector(), vitePluginStorageProxy()];
 
 export default defineConfig({
+  // GitHub Pages serves this project under /typical_sword_game/; Manus preview keeps root base.
+  base: process.env.GITHUB_PAGES === "true" ? "/typical_sword_game/" : "/",
   plugins,
   resolve: {
     alias: {
