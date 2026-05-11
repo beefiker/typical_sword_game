@@ -20,3 +20,10 @@ GitHub Pages gh-pages 최신 배포 커밋: `f21ba78` (`deploy: update pixel RPG
 ## 버튼·조작 UI 픽셀 RPG 강화 확인
 
 개발 서버 `?v=buttons`에서 상단 버튼, 히어로 CTA, 강화/방지 강화/안정화/확정 이익 판매, 탭바, 직접 공격 버튼을 확인했다. 버튼에 다층 픽셀 테두리, 금색·청록색 하이라이트, 내부 픽셀 격자, 눌림/호버를 위한 입체 음영이 적용되어 이전보다 플랫한 느낌이 줄었다. 페이지를 아래로 스크롤한 상태에서도 오른쪽 상단의 작은 골드 HUD가 노출되며, 현재 골드 값이 게임 상태와 함께 보인다. 타입 검사와 프로덕션 빌드는 통과했다.
+
+## GitHub Pages 버튼 UI 강화 배포 확인
+
+공개 URL `https://beefiker.github.io/typical_sword_game/?v=87f18e2`에서 최신 배포 화면을 확인했다. 상단 초기화 버튼, 히어로 CTA, 강화 조작 버튼, 탭바, 직접 공격 버튼이 다층 픽셀 테두리와 금색·청록색 하이라이트를 가진 RPG식 버튼으로 표시된다. 아래로 스크롤한 상태에서도 우측 상단 `현재 골드` HUD가 `2.98KG`처럼 작은 고정 패널로 표시되어 골드 상태 확인성이 유지된다. 확인 스크린샷은 `/home/ubuntu/screenshots/beefiker_github_io_2026-05-11_06-12-40_5753.webp`에 저장되었다.
+
+GitHub main 최신 커밋: `fc0bb47` (`feat: enrich pixel RPG button controls`).
+GitHub Pages gh-pages 최신 배포 커밋: `87f18e2` (`deploy: enrich pixel RPG button controls`).
