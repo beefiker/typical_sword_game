@@ -47,3 +47,11 @@ CSS `calc()` 표기를 공백 포함 형식으로 정규화한 뒤 개발 서버
 아래로 스크롤한 상태에서 우측 상단 골드 HUD는 탭 버튼을 직접 덮지 않고 처치 스탯 카드 우측 내부 영역 가까이에 표시된다. 조작 버튼의 클릭 영역과는 겹치지 않으므로 현재 요청한 “골드 UI 살짝 내려” 조정은 유지 가능한 상태로 판단했다.
 
 최종 스크롤 HUD 검증 스크린샷: `/home/ubuntu/screenshots/3000-ixgw8dgs0un433t_2026-05-11_06-30-49_9891.webp`
+
+## GitHub Pages 공개 URL 후속 확인
+
+`gh-pages` 브랜치는 `ee26dd6`까지 갱신되었고 원격 HTML의 자산 경로도 `/typical_sword_game/assets/...` 형식으로 수정되었다. 다만 공개 URL `https://beefiker.github.io/typical_sword_game/?v=ee26dd6`는 브라우저에서 여전히 흰 화면으로 표시되어 추가 원인 확인이 필요하다. 콘솔에는 즉시 노출되는 오류가 없었고, 현재 브라우저가 받은 HTML을 다시 저장했다.
+
+공개 URL 흰 화면 확인 스크린샷: `/home/ubuntu/screenshots/beefiker_github_io_2026-05-11_06-35-18_1411.webp`
+
+저장된 공개 페이지 HTML: `/home/ubuntu/browser_html/beefiker_github_io_typical_sword_game_1778495718362.html`

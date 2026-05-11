@@ -16,6 +16,9 @@ importers:
 
   .:
     dependencies:
+      '@ga1az/react-pixel-motion':
+        specifier: ^0.0.18
+        version: 0.0.18(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(typescript@5.6.3)
       '@hookform/resolvers':
         specifier: ^5.2.2
         version: 5.2.2(react-hook-form@7.64.0(react@19.2.1))
@@ -669,6 +672,13 @@ packages:
 
   '@floating-ui/utils@0.2.10':
     resolution: {integrity: sha512-aGTxbpbg8/b5JfU1HXSrbH3wXZuLPJcNEcZQFMxLs3oSzgtVu6nFPkbbGGUvBcUjKV2YyB9Wxxabo+HEH9tcRQ==}
+
+  '@ga1az/react-pixel-motion@0.0.18':
+    resolution: {integrity: sha512-hN8i5ZzFkE0BzDd9m7BrTMQiFku7VGU96KL4uWVUKu5J0yMd4y6pLCe5sFZpaZgUsT43UEzEga8ona1GzvsUvA==}
+    peerDependencies:
+      react: ^17.0.0 || ^18.0.0 || ^19.0.0
+      react-dom: ^17.0.0 || ^18.0.0 || ^19.0.0
+      typescript: ^4.5.0 || ^5.0.0
 
   '@hookform/resolvers@5.2.2':
     resolution: {integrity: sha512-A/IxlMLShx3KjV/HeTcTfaMxdwy690+L/ZADoeaTltLx+CVuzkeVIPuybK3jrRfw7YZnmdKsVVHAlEPIAEUNlA==}
@@ -3853,6 +3863,12 @@ snapshots:
       react-dom: 19.2.1(react@19.2.1)
 
   '@floating-ui/utils@0.2.10': {}
+
+  '@ga1az/react-pixel-motion@0.0.18(react-dom@19.2.1(react@19.2.1))(react@19.2.1)(typescript@5.6.3)':
+    dependencies:
+      react: 19.2.1
+      react-dom: 19.2.1(react@19.2.1)
+      typescript: 5.6.3
 
   '@hookform/resolvers@5.2.2(react-hook-form@7.64.0(react@19.2.1))':
     dependencies:
