@@ -1,7 +1,7 @@
 /*
- * Design Philosophy: Geist-Industrial Minimalism.
- * The UI must feel like a precise forge console: mostly neutral Geist-like surfaces,
- * thin borders, deliberate whitespace, and only four functional accent colors:
+ * Design Philosophy: Pixel Quest Forge.
+ * The UI must feel like a compact handheld RPG status screen: chunky pixel panels,
+ * tactile command buttons, readable mobile hierarchy, and only four functional accent colors:
  * #03AED2 progress/action, #F8DE22 reward/gold, #F45B26 warning/heat, #D12052 failure/lethal.
  */
 
@@ -56,14 +56,15 @@ const REGIONS = [
     unlock: "기본 해금",
     requiredEnhance: 0,
     requiredLevel: 1,
-    baseHp: 65,
-    hpGrowth: 1.15,
-    gold: 22,
-    exp: 10,
+    baseHp: 54,
+    hpGrowth: 1.085,
+    gold: 24,
+    exp: 11,
     material: "scraps",
     materialName: "금속 파편",
-    materialChance: 0.42,
+    materialChance: 0.44,
     bossEvery: 15,
+    bossMultiplier: 2.6,
   },
   {
     id: "mine_corridor",
@@ -72,14 +73,15 @@ const REGIONS = [
     unlock: "+10 검 또는 Lv.8",
     requiredEnhance: 10,
     requiredLevel: 8,
-    baseHp: 320,
-    hpGrowth: 1.18,
-    gold: 84,
-    exp: 32,
+    baseHp: 300,
+    hpGrowth: 1.13,
+    gold: 92,
+    exp: 34,
     material: "ore",
     materialName: "철광석",
-    materialChance: 0.34,
-    bossEvery: 20,
+    materialChance: 0.35,
+    bossEvery: 18,
+    bossMultiplier: 4.2,
   },
   {
     id: "red_citadel",
@@ -88,14 +90,15 @@ const REGIONS = [
     unlock: "+18 검 또는 Lv.18",
     requiredEnhance: 18,
     requiredLevel: 18,
-    baseHp: 1700,
-    hpGrowth: 1.2,
-    gold: 360,
-    exp: 96,
+    baseHp: 1450,
+    hpGrowth: 1.155,
+    gold: 380,
+    exp: 100,
     material: "soul",
     materialName: "영혼 결정",
-    materialChance: 0.24,
-    bossEvery: 25,
+    materialChance: 0.25,
+    bossEvery: 22,
+    bossMultiplier: 5.0,
   },
   {
     id: "frost_rift",
@@ -104,14 +107,15 @@ const REGIONS = [
     unlock: "+28 검 또는 Lv.35",
     requiredEnhance: 28,
     requiredLevel: 35,
-    baseHp: 9200,
-    hpGrowth: 1.22,
-    gold: 1450,
-    exp: 260,
+    baseHp: 7600,
+    hpGrowth: 1.175,
+    gold: 1520,
+    exp: 270,
     material: "frost",
     materialName: "냉각 결정",
-    materialChance: 0.18,
-    bossEvery: 30,
+    materialChance: 0.19,
+    bossEvery: 28,
+    bossMultiplier: 6.0,
   },
   {
     id: "abyss_forge",
@@ -121,14 +125,15 @@ const REGIONS = [
     requiredEnhance: 40,
     requiredLevel: 45,
     prestigeRequired: 1,
-    baseHp: 58000,
-    hpGrowth: 1.24,
-    gold: 7200,
-    exp: 820,
+    baseHp: 52000,
+    hpGrowth: 1.195,
+    gold: 7600,
+    exp: 860,
     material: "abyssCore",
     materialName: "심연핵",
-    materialChance: 0.1,
-    bossEvery: 35,
+    materialChance: 0.11,
+    bossEvery: 34,
+    bossMultiplier: 7.2,
   },
   {
     id: "nameless_throne",
@@ -138,14 +143,15 @@ const REGIONS = [
     requiredEnhance: 50,
     requiredLevel: 60,
     prestigeRequired: 3,
-    baseHp: 820000,
-    hpGrowth: 1.28,
-    gold: 50000,
-    exp: 5200,
+    baseHp: 760000,
+    hpGrowth: 1.215,
+    gold: 54000,
+    exp: 5400,
     material: "abyssCore",
     materialName: "심연핵",
-    materialChance: 0.2,
+    materialChance: 0.22,
     bossEvery: 1,
+    bossMultiplier: 5.4,
     final: true,
   },
 ] as const;
@@ -198,6 +204,8 @@ type Derived = {
   dps: number;
   clickDamage: number;
   saleValue: number;
+  cumulativeInvestment: number;
+  saleProfit: number;
   upgradeCost: number;
   successRate: number;
   destroyRate: number;
@@ -262,7 +270,7 @@ const initialState = (): GameState => ({
   bossesKilled: 0,
   regionId: "ash_forest",
   regionStep: 1,
-  monsterHp: 65,
+  monsterHp: 54,
   inventory: {
     scraps: 0,
     ore: 0,
@@ -336,8 +344,30 @@ function isRegionUnlocked(region: (typeof REGIONS)[number], state: GameState) {
 }
 
 function getMonsterMaxHp(state: GameState, region = getRegion(state.regionId)) {
-  const bossMultiplier = state.regionStep % region.bossEvery === 0 ? 8.5 + state.prestige * 1.2 : 1;
+  const regionBossMultiplier = "bossMultiplier" in region ? region.bossMultiplier : 5.4;
+  const bossMultiplier = state.regionStep % region.bossEvery === 0 ? regionBossMultiplier + state.prestige * 1.05 : 1;
   return Math.floor(region.baseHp * Math.pow(region.hpGrowth, state.regionStep - 1) * bossMultiplier);
+}
+
+function getBaseUpgradeCost(enhance: number) {
+  return Math.floor(120 * Math.pow(1.42, enhance));
+}
+
+function getCumulativeEnhanceCost(enhance: number) {
+  let total = 0;
+  for (let step = 0; step < enhance; step += 1) total += getBaseUpgradeCost(step);
+  return total;
+}
+
+function getSwordSaleValue(enhance: number, merchant: number) {
+  const cumulativeInvestment = getCumulativeEnhanceCost(enhance);
+  const legacyValue = Math.floor(
+    (120 + Math.pow(1.36, enhance) * 55) * (1 + merchant * 0.055),
+  );
+  const guaranteedProfitValue = Math.floor(
+    cumulativeInvestment * (1.18 + Math.min(enhance, 50) * 0.006) + 90 * enhance + 120,
+  );
+  return Math.floor(Math.max(legacyValue, guaranteedProfitValue) * (1 + merchant * 0.035));
 }
 
 function derive(state: GameState): Derived {
@@ -346,8 +376,10 @@ function derive(state: GameState): Derived {
   const attack = Math.floor(10 * Math.pow(1.24, state.enhance) * prestigeMultiplier * (1 + state.traits.hunter * 0.035));
   const dps = Math.floor(attack * (0.5 + state.level * 0.015) * (1 + state.traits.hunter * 0.045));
   const clickDamage = Math.max(1, Math.floor(attack * (0.4 + state.traits.hunter * 0.012)));
-  const saleValue = Math.floor((120 + Math.pow(1.36, state.enhance) * 55) * (1 + state.traits.merchant * 0.055));
-  const upgradeCost = Math.floor(120 * Math.pow(1.42, state.enhance) * (1 - clamp(state.traits.smith * 0.012, 0, 0.3)));
+  const cumulativeInvestment = getCumulativeEnhanceCost(state.enhance);
+  const saleValue = getSwordSaleValue(state.enhance, state.traits.merchant);
+  const saleProfit = saleValue - cumulativeInvestment;
+  const upgradeCost = Math.floor(getBaseUpgradeCost(state.enhance) * (1 - clamp(state.traits.smith * 0.012, 0, 0.3)));
   const baseRate =
     state.enhance < 10
       ? 95 - state.enhance * 2.8
@@ -371,6 +403,8 @@ function derive(state: GameState): Derived {
     dps,
     clickDamage,
     saleValue,
+    cumulativeInvestment,
+    saleProfit,
     upgradeCost,
     successRate,
     destroyRate,
@@ -683,8 +717,8 @@ export default function Home() {
       const soldLevel = draft.enhance;
       draft.enhance = 0;
       draft.monsterHp = Math.min(draft.monsterHp, getMonsterMaxHp(draft));
-      toast("검 판매 완료", { description: `${compact(d.saleValue)}G와 파편을 받았습니다.` });
-      return `+${soldLevel} 검을 ${compact(d.saleValue)}G에 판매했습니다.`;
+      toast("검 판매 완료", { description: `누적 투자 ${compact(d.cumulativeInvestment)}G 대비 +${compact(Math.max(0, d.saleProfit))}G 이익을 확보했습니다.` });
+      return `+${soldLevel} 검을 ${compact(d.saleValue)}G에 판매했습니다. 누적 투자 대비 +${compact(Math.max(0, d.saleProfit))}G 이익입니다.`;
     }, "gold");
   }
 
@@ -813,7 +847,7 @@ export default function Home() {
           <div className="brand-mark"><Sword size={18} /></div>
           <div>
             <p>Typical Sword Game</p>
-            <h1>검 강화 제련 콘솔</h1>
+            <h1>픽셀 검 강화 RPG</h1>
           </div>
         </div>
         <div className="topbar-actions">
@@ -835,12 +869,17 @@ export default function Home() {
 
       <section className="hero-console">
         <div className="hero-copy">
-          <span className="eyebrow">GEIST FORGE / RESTRICTED PALETTE</span>
-          <h2><span>강화 리스크가</span><span>전투 성장으로</span><span>돌아오는 방치형 RPG</span></h2>
+          <span className="eyebrow">PIXEL QUEST / ONE-HAND IDLE RPG</span>
+          <h2><span>낡은 검을</span><span>전설 장비로</span><span>키우는 방치형 RPG</span></h2>
           <p>
-            현재 목표는 <strong>{nextMilestone}</strong>입니다. 검을 강화하면 판매가와 전투력이 동시에 오르고,
-            몬스터 처치 보상은 다음 강화와 특성 트리 투자로 되돌아옵니다.
+            현재 퀘스트는 <strong>{nextMilestone}</strong>입니다. 몬스터를 쓰러뜨려 골드와 경험치를 모으고,
+            강화한 검은 누적 투자보다 높은 가격으로 판매해 다음 원정을 준비합니다.
           </p>
+          <div className="hero-status-board" aria-label="캐릭터 전투 상태">
+            <span>HP 안정</span>
+            <strong>Lv.{state.level} 모험가</strong>
+            <small>EXP {pct(expPercent)} · DPS {compact(derived.dps)}</small>
+          </div>
           <div className="hero-actions">
             <button className="primary-button" onClick={() => enhanceSword(false, false)}><Hammer size={17} /> 기본 강화</button>
             <button className="secondary-button" onClick={manualAttack}><Sword size={17} /> 직접 공격</button>
@@ -864,25 +903,25 @@ export default function Home() {
       <section className="main-grid">
         <aside className="left-stack">
           <div className="panel sword-panel">
-            <SectionTitle icon={Sword} title="현재 검" eyebrow="FORGE STATUS" />
+            <SectionTitle icon={Sword} title="장비 슬롯" eyebrow="SWORD EQUIPMENT" />
             <div className="sword-level-row">
               <strong>+{state.enhance}</strong>
               <div>
-                <span>공격력 {compact(derived.attack)}</span>
+                <span>공격력 {compact(derived.attack)} · 판매가 {compact(derived.saleValue)}G</span>
                 <ProgressBar value={derived.successRate} tone={state.enhance >= 30 ? "orange" : "cyan"} />
-                <small>다음 강화 성공률 {pct(derived.successRate)} · 비용 {compact(derived.upgradeCost)}G</small>
+                <small>성공률 {pct(derived.successRate)} · 다음 비용 {compact(derived.upgradeCost)}G · 이익 +{compact(Math.max(0, derived.saleProfit))}G</small>
               </div>
             </div>
             <div className="quick-actions">
               <button onClick={() => enhanceSword(false, false)} disabled={state.gold < derived.upgradeCost}>강화</button>
               <button onClick={() => enhanceSword(true, false)} disabled={state.inventory.guards <= 0 || state.gold < derived.upgradeCost}>방지 강화</button>
               <button onClick={() => enhanceSword(false, true)} disabled={state.inventory.stabilizers <= 0 || state.gold < derived.upgradeCost}>안정화</button>
-              <button onClick={sellSword} disabled={state.enhance <= 0}>판매</button>
+              <button onClick={sellSword} disabled={state.enhance <= 0}>확정 이익 판매</button>
             </div>
           </div>
 
           <div className="panel battle-panel">
-            <SectionTitle icon={Skull} title="몬스터 전투" eyebrow={derived.currentRegion.short} />
+            <SectionTitle icon={Skull} title="필드 전투" eyebrow={derived.currentRegion.short} />
             <div className="monster-card">
               <img src={isFinalRegion(derived.currentRegion) ? ASSETS.boss : ASSETS.monster} alt="현재 몬스터" />
               <div className="monster-info">
@@ -926,17 +965,19 @@ export default function Home() {
 
           {activeTab === "forge" ? (
             <div className="panel console-panel">
-              <SectionTitle icon={Hammer} title="강화실" eyebrow="UPGRADE BAY" />
+              <SectionTitle icon={Hammer} title="대장간 명령" eyebrow="UPGRADE COMMAND" />
               <div className="risk-table">
                 <div><span>성공률</span><strong className="tone-text-cyan">{pct(derived.successRate)}</strong></div>
                 <div><span>파괴율</span><strong className="tone-text-pink">{state.enhance < 10 ? "0%" : pct(derived.destroyRate)}</strong></div>
                 <div><span>판매가</span><strong className="tone-text-gold">{compact(derived.saleValue)}G</strong></div>
-                <div><span>비용</span><strong>{compact(derived.upgradeCost)}G</strong></div>
+                <div><span>누적 비용</span><strong>{compact(derived.cumulativeInvestment)}G</strong></div>
+                <div><span>판매 이익</span><strong className="tone-text-gold">+{compact(Math.max(0, derived.saleProfit))}G</strong></div>
+                <div><span>다음 비용</span><strong>{compact(derived.upgradeCost)}G</strong></div>
               </div>
               <div className="strategy-card">
                 <h3>강화 판단</h3>
                 <p>
-                  +10 이후에는 파괴 위험이 생깁니다. 방지권은 파괴를 막고, 안정화석은 성공률을 보정합니다. 실패해도 파편은 조합 재료로 환원됩니다.
+                  판매가는 현재 강화 단계까지의 누적 강화 비용보다 항상 높게 보정됩니다. 초반 필드는 14단계 전후에도 지나치게 막히지 않도록 완만해졌고, +10 이후에는 파괴 위험이 생기므로 방지권과 안정화석으로 장기 목표를 보호하십시오.
                 </p>
               </div>
             </div>
@@ -965,7 +1006,7 @@ export default function Home() {
 
           {activeTab === "market" ? (
             <div className="panel console-panel">
-              <SectionTitle icon={ShoppingCart} title="상점" eyebrow="CONTROLLED ECONOMY" />
+              <SectionTitle icon={ShoppingCart} title="상점" eyebrow="PROFIT LOOP" />
               <div className="shop-grid">
                 <ShopItem icon={ShieldCheck} title="방지권" price="2.2K G" text="강화 실패 시 파괴를 1회 방지합니다." onBuy={() => buyItem("guard")} />
                 <ShopItem icon={FlaskConical} title="안정화석" price="1.4K G" text="다음 강화 성공률을 보정합니다." onBuy={() => buyItem("stabilizer")} />
