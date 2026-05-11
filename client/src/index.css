@@ -3112,3 +3112,216 @@ button:active:not(:disabled),
     transform: scaleX(-1) scale(0.86);
   }
 }
+
+
+/* 2026-05-11 Sprite Color Normalization & Pixel Village Kit Pass
+   Design Philosophy: Pixel Quest Forge. Direct SVG sprites preserve saturated fills with no white filter, while the hero stage borrows top-down village tileset grammar: grass tile noise, stone path, roofed cottages, fences, lamps, trees, barrels, and a small forge square. */
+.direct-pixel-sprite {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  image-rendering: pixelated;
+  shape-rendering: crispEdges;
+  filter: none !important;
+  opacity: 1 !important;
+  mix-blend-mode: normal !important;
+  color-rendering: optimizeSpeed;
+}
+
+.direct-pixel-sprite .sprite-frame {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+
+.direct-pixel-sprite .sprite-frame-0 { animation: directSpriteFrameA 0.9s steps(1, end) infinite; }
+.direct-pixel-sprite .sprite-frame-1 { animation: directSpriteFrameB 0.9s steps(1, end) infinite; }
+
+@keyframes directSpriteFrameA { 0%, 49.9% { opacity: 1; } 50%, 100% { opacity: 0; } }
+@keyframes directSpriteFrameB { 0%, 49.9% { opacity: 0; } 50%, 100% { opacity: 1; } }
+
+.pixel-motion-frame {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  filter: none !important;
+  overflow: visible;
+}
+
+.hero-sprite-frame {
+  width: calc(48px * 3.7);
+  height: calc(52px * 3.7);
+}
+
+.pixel-adventurer-card .hero-sprite-frame {
+  width: calc(48px * 2.2);
+  height: calc(52px * 2.2);
+}
+
+.pixel-adventurer-mini .hero-sprite-frame {
+  width: calc(48px * 1.2);
+  height: calc(52px * 1.2);
+}
+
+.pixel-monster-large .direct-pixel-sprite { width: calc(32px * 4.1); height: calc(32px * 4.1); }
+.pixel-monster-world .direct-pixel-sprite { width: calc(32px * 2.35); height: calc(32px * 2.35); }
+.pixel-monster-chip .direct-pixel-sprite { width: calc(32px * 1.35); height: calc(32px * 1.35); }
+
+.pixel-adventurer,
+.pixel-monster,
+.pixel-adventurer svg,
+.pixel-monster svg {
+  filter: none !important;
+  opacity: 1 !important;
+  mix-blend-mode: normal !important;
+}
+
+.pixel-world {
+  background:
+    linear-gradient(180deg, rgba(118, 203, 223, 0.95) 0 29%, transparent 29%),
+    repeating-linear-gradient(0deg, transparent 0 13px, rgba(23, 75, 43, 0.11) 13px 15px),
+    repeating-linear-gradient(90deg, transparent 0 13px, rgba(255, 255, 255, 0.07) 13px 15px),
+    linear-gradient(180deg, #7fcf76 0%, #5eaa55 60%, #3f7f42 100%) !important;
+  border-color: #1f3f2d !important;
+  box-shadow: inset 0 0 0 4px #6b3f2a, inset 0 0 0 8px #f8de22, 0 22px 0 rgba(18, 25, 20, 0.45) !important;
+}
+
+.pixel-world::before {
+  content: "";
+  position: absolute;
+  inset: 30% 0 0;
+  z-index: 1;
+  background:
+    linear-gradient(45deg, transparent 0 47%, rgba(31, 63, 45, 0.22) 47% 53%, transparent 53%) 0 0 / 22px 22px,
+    radial-gradient(circle at 10% 60%, #355f34 0 2px, transparent 2px),
+    radial-gradient(circle at 70% 72%, #a3d46d 0 2px, transparent 2px),
+    radial-gradient(circle at 38% 45%, #294d31 0 1.5px, transparent 1.5px),
+    repeating-linear-gradient(0deg, rgba(255,255,255,0.06) 0 2px, transparent 2px 10px);
+  opacity: 0.86;
+  pointer-events: none;
+}
+
+.pixel-world::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 17;
+  pointer-events: none;
+  background:
+    linear-gradient(rgba(255,255,255,0.07) 1px, transparent 1px) 0 0 / 4px 4px,
+    linear-gradient(90deg, rgba(36,25,22,0.12) 1px, transparent 1px) 0 0 / 4px 4px;
+  opacity: 0.16;
+  mix-blend-mode: normal;
+}
+
+.world-sky {
+  background:
+    radial-gradient(circle at 74% 23%, #fff3a6 0 14px, #f8de22 15px 21px, transparent 22px),
+    linear-gradient(180deg, #80d8ee 0%, #7fcf76 92%);
+  box-shadow: inset 0 -10px 0 rgba(73, 139, 82, 0.42);
+}
+
+.world-village {
+  z-index: 7 !important;
+  width: 76px !important;
+  height: 70px !important;
+  bottom: 37% !important;
+  background:
+    linear-gradient(180deg, transparent 0 22px, #f2c078 22px 52px, #8b5a32 52px 56px, transparent 56px) !important;
+  border: 0 !important;
+  box-shadow:
+    0 0 0 4px #35211b,
+    inset 0 -7px 0 #b46b39,
+    inset 0 0 0 4px #ffe0a0,
+    6px 8px 0 rgba(21, 33, 25, 0.33) !important;
+}
+
+.world-village::before {
+  content: "";
+  position: absolute;
+  left: -8px;
+  top: 7px;
+  width: 92px;
+  height: 22px;
+  background:
+    linear-gradient(135deg, transparent 0 12px, #6e1d2b 12px 20px, #d12052 20px 70px, #7e1230 70px 78px, transparent 78px),
+    repeating-linear-gradient(90deg, transparent 0 9px, rgba(255,255,255,0.17) 9px 12px) !important;
+  box-shadow: 0 4px 0 #35151b, 0 8px 0 #f45b4d;
+}
+
+.world-village span {
+  left: 12px !important;
+  top: 35px !important;
+  width: 14px !important;
+  height: 16px !important;
+  background: #2c6b70 !important;
+  box-shadow: 22px 0 0 #2c6b70, 0 0 0 3px #36241d, 22px 0 0 3px #36241d !important;
+}
+
+.world-village i {
+  left: 43px !important;
+  top: 35px !important;
+  width: 16px !important;
+  height: 22px !important;
+  background: #573722 !important;
+  box-shadow: inset 4px 0 0 #9d6136, 0 0 0 3px #312019 !important;
+}
+
+.world-village.house-one { left: 9% !important; bottom: 40% !important; }
+.world-village.tower-one {
+  left: auto !important;
+  right: 9% !important;
+  bottom: 41% !important;
+  width: 58px !important;
+  height: 92px !important;
+  background: linear-gradient(180deg, transparent 0 18px, #d8b276 18px 78px, #795133 78px 84px, transparent 84px) !important;
+}
+.world-village.tower-one::before { width: 72px; left: -7px; top: 0; }
+
+.world-path {
+  z-index: 5 !important;
+  left: 23% !important;
+  bottom: -9% !important;
+  width: 55% !important;
+  height: 68% !important;
+  border-radius: 45% 45% 0 0 / 100% 100% 0 0 !important;
+  background:
+    radial-gradient(circle at 50% 12%, #d9c48f 0 5px, transparent 6px),
+    radial-gradient(circle at 42% 28%, #a88655 0 5px, transparent 6px),
+    radial-gradient(circle at 58% 43%, #f0dca0 0 6px, transparent 7px),
+    radial-gradient(circle at 47% 61%, #9a7648 0 6px, transparent 7px),
+    repeating-linear-gradient(90deg, #c49b63 0 10px, #a67b4c 10px 14px, #dec486 14px 24px) !important;
+  clip-path: polygon(42% 0, 58% 0, 78% 100%, 20% 100%) !important;
+  box-shadow: inset 0 0 0 4px #6b4b31, inset 0 8px 0 rgba(255,255,255,0.18) !important;
+}
+
+.world-forge {
+  z-index: 8 !important;
+  right: 21% !important;
+  bottom: 33% !important;
+  background: linear-gradient(180deg, #6f3f2e 0 22px, #2a2525 22px 46px, #181618 46px 58px) !important;
+  box-shadow: 0 0 0 4px #211714, inset 8px 0 0 #a25d34, 8px 8px 0 rgba(0,0,0,0.22) !important;
+}
+
+.world-forge::before,
+.world-forge::after {
+  content: "";
+  position: absolute;
+  background: #5a3827;
+  box-shadow: 0 0 0 3px #211714;
+}
+.world-forge::before { left: -44px; bottom: -2px; width: 34px; height: 18px; }
+.world-forge::after { right: -38px; bottom: -2px; width: 28px; height: 16px; }
+
+.world-tree { z-index: 9 !important; }
+.world-lamp { z-index: 10 !important; filter: saturate(1.2); }
+.pixel-world .pixel-adventurer { z-index: 14 !important; }
+.pixel-world .pixel-monster-world { z-index: 13 !important; }
+
+@media (max-width: 760px) {
+  .hero-sprite-frame { width: calc(48px * 3); height: calc(52px * 3); }
+  .pixel-monster-world .direct-pixel-sprite { width: calc(32px * 2.05); height: calc(32px * 2.05); }
+  .world-village.house-one { left: 5% !important; }
+  .world-village.tower-one { right: 4% !important; transform: scale(0.82); }
+  .world-forge { display: block !important; transform: scale(0.75); right: 16% !important; bottom: 31% !important; }
+}

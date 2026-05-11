@@ -30,7 +30,6 @@ import {
   Zap,
 } from "lucide-react";
 import { toast } from "sonner";
-import { PixelMotion } from "@ga1az/react-pixel-motion";
 
 const ASSETS = {
   swordHero:
@@ -229,6 +228,7 @@ type MonsterProfile = {
   cue: string;
   tone: LogTone;
   sprite: string;
+  frames: PixelRect[][];
 };
 
 function px(x: number, y: number, w: number, h: number, color: string): PixelRect {
@@ -249,16 +249,21 @@ function spriteSheet(frameWidth: number, frameHeight: number, frames: PixelRect[
 
 function heroFrame(capeLift = 0, step = 0): PixelRect[] {
   return [
-    px(9, 14 - capeLift, 12, 4, "#7e1230"), px(7, 18 - capeLift, 18, 6, "#d12052"), px(5, 23 - capeLift, 17, 6, "#f45b4d"),
-    px(4, 29 - capeLift, 14, 5, "#c01d3f"), px(3, 34 - capeLift, 8, 3, "#74142d"), px(12, 27 - capeLift, 8, 3, "#fa6f69"),
-    px(24, 4, 9, 3, "#111014"), px(21, 7, 14, 5, "#111014"), px(20, 12, 15, 4, "#111014"), px(34, 10, 4, 3, "#111014"),
+    // dark outline and red hero cape, kept saturated to avoid the washed-out white overlay look
+    px(8, 13 - capeLift, 13, 4, "#4a0b1f"), px(6, 17 - capeLift, 18, 6, "#b4143d"), px(4, 23 - capeLift, 20, 7, "#f0444f"),
+    px(3, 30 - capeLift, 16, 5, "#c01d3f"), px(3, 35 - capeLift, 8, 4, "#72152c"), px(11, 25 - capeLift, 9, 3, "#ff7670"),
+    // black hair silhouette, face, ears and readable expression
+    px(23, 4, 10, 3, "#0a0b0f"), px(20, 7, 15, 5, "#0a0b0f"), px(20, 12, 15, 4, "#0a0b0f"), px(34, 9, 5, 3, "#0a0b0f"), px(34, 13, 4, 2, "#0a0b0f"),
     px(22, 12, 11, 9, "#ffd5b9"), px(22, 17, 12, 6, "#f0b28f"), px(20, 16, 3, 4, "#ffd5b9"), px(33, 15, 3, 4, "#ffd5b9"),
-    px(25, 15, 2, 4, "#171015"), px(31, 15, 2, 4, "#171015"), px(28, 20, 3, 2, "#c77d69"),
-    px(22, 24, 13, 12, "#1f59b7"), px(24, 25, 8, 3, "#336ee1"), px(29, 25, 3, 3, "#f8de22"), px(27, 30, 3, 3, "#f8de22"),
-    px(20, 35, 18, 3, "#5a3b2e"), px(22, 38, 5, 6 + step, "#4b352b"), px(33, 38, 5, 6 - step, "#4b352b"), px(20, 44, 9, 3, "#111014"), px(33, 44, 9, 3, "#111014"),
+    px(25, 15, 2, 4, "#171015"), px(31, 15, 2, 4, "#171015"), px(28, 20, 3, 2, "#b86b5c"),
+    // blue tunic and gold fasteners
+    px(22, 24, 13, 12, "#1f4fb0"), px(24, 25, 8, 3, "#336ee1"), px(29, 25, 3, 3, "#f8de22"), px(27, 30, 3, 3, "#f8de22"), px(31, 33, 3, 2, "#f8de22"),
+    px(20, 35, 18, 3, "#5a3b2e"), px(22, 38, 5, 6 + step, "#4b352b"), px(33, 38, 5, 6 - step, "#4b352b"), px(20, 44, 9, 3, "#101014"), px(33, 44, 9, 3, "#101014"),
     px(17, 25, 5, 11, "#ffd5b9"), px(36, 24, 5, 11, "#ffd5b9"), px(39, 27, 3, 4, "#ffd5b9"),
-    px(15, 32, 3, 10, "#b98218"), px(12, 38, 8, 2, "#b98218"), px(10, 40, 2, 5, "#d7e5db"), px(8, 45, 2, 2, "#d7e5db"),
-    px(7, 47, 12, 2, "#aab9b1"), px(6, 49, 13, 2, "#e7f0e9"), px(13, 34, 3, 3, "#f8de22"),
+    // straight pixel sword: repeated diagonal blade blocks of the same size, not curved or bowed
+    px(15, 31, 3, 8, "#9f6815"), px(11, 37, 10, 2, "#b98218"), px(13, 34, 3, 3, "#f8de22"),
+    px(10, 39, 3, 3, "#e7f0e9"), px(8, 41, 3, 3, "#cbd7d1"), px(6, 43, 3, 3, "#e7f0e9"), px(4, 45, 3, 3, "#aab9b1"), px(2, 47, 3, 3, "#f2fbf5"),
+    px(11, 40, 2, 2, "#ffffff"), px(7, 44, 2, 2, "#ffffff"),
     px(38, 29, 6, 8, "#7e1230"), px(39, 30, 5, 6, "#f8de22"), px(40, 31, 3, 4, "#d12052"),
   ];
 }
@@ -299,18 +304,19 @@ function bossFrame(pulse = 0): PixelRect[] {
   return [px(5, 4, 22, 5, "#100713"), px(3, 9, 26, 11, "#26143b"), px(6, 20, 20, 8, "#120817"), px(9, 11, 4, 6, "#d12052"), px(20, 11, 4, 6, "#d12052"), px(14, 19, 5 + pulse, 3, "#f8de22"), px(2, 15, 5, 6, "#4e1b66"), px(26, 15, 5, 6, "#4e1b66"), px(10, 28, 4, 4, "#2a1739"), px(20, 28, 4, 4, "#2a1739")];
 }
 
-const HERO_SPRITE = spriteSheet(48, 52, [heroFrame(0, 0), heroFrame(1, 1)]);
+const HERO_FRAMES = [heroFrame(0, 0), heroFrame(1, 1)];
+const HERO_SPRITE = spriteSheet(48, 52, HERO_FRAMES);
 
 const MONSTER_PROFILES: Record<MonsterKey, MonsterProfile> = {
-  slime: { key: "slime", name: "초록 슬라임", title: "젤리 점액체", habitat: "숲 바닥", cue: "둥근 몸통과 작은 눈으로 식별", tone: "cyan", sprite: spriteSheet(32, 32, [slimeFrame(0), slimeFrame(1)]) },
-  goblin: { key: "goblin", name: "고블린 척후병", title: "단검 도적", habitat: "잿빛 숲", cue: "긴 귀, 초록 피부, 보라 튜닉", tone: "orange", sprite: spriteSheet(32, 32, [goblinFrame(0), goblinFrame(1)]) },
-  skeleton: { key: "skeleton", name: "해골 병사", title: "뼈 갑주", habitat: "폐광 회랑", cue: "두개골과 갈비뼈 실루엣", tone: "gold", sprite: spriteSheet(32, 32, [skeletonFrame(0), skeletonFrame(1)]) },
-  zombie: { key: "zombie", name: "좀비 광부", title: "느린 부패자", habitat: "폐광 회랑", cue: "녹색 피부와 앞으로 뻗은 팔", tone: "neutral", sprite: spriteSheet(32, 32, [zombieFrame(0), zombieFrame(1)]) },
-  vampire: { key: "vampire", name: "밤의 흡혈귀", title: "붉은 망토 귀족", habitat: "붉은 성채", cue: "검은 머리, 붉은 눈, 펼친 망토", tone: "pink", sprite: spriteSheet(32, 32, [vampireFrame(0), vampireFrame(1)]) },
-  orc: { key: "orc", name: "오크 돌격병", title: "도끼 전위", habitat: "붉은 성채", cue: "큰 턱, 송곳니, 도끼 실루엣", tone: "orange", sprite: spriteSheet(32, 32, [orcFrame(0), orcFrame(1)]) },
-  ghost: { key: "ghost", name: "협곡 귀신", title: "떠도는 혼백", habitat: "서리 협곡", cue: "흰 천처럼 흔들리는 하단부", tone: "cyan", sprite: spriteSheet(32, 32, [ghostFrame(0), ghostFrame(-1)]) },
-  wolf: { key: "wolf", name: "검은 늑대", title: "서리 추적자", habitat: "서리 협곡", cue: "낮은 네발 자세와 붉은 눈", tone: "neutral", sprite: spriteSheet(32, 32, [wolfFrame(0), wolfFrame(1)]) },
-  boss: { key: "boss", name: "무명의 수문장", title: "왕좌의 그림자", habitat: "심연", cue: "거대한 검은 형체와 붉은 핵", tone: "pink", sprite: spriteSheet(32, 32, [bossFrame(0), bossFrame(2)]) },
+  slime: { key: "slime", name: "초록 슬라임", title: "젤리 점액체", habitat: "숲 바닥", cue: "둥근 몸통과 작은 눈으로 식별", tone: "cyan", sprite: spriteSheet(32, 32, [slimeFrame(0), slimeFrame(1)]), frames: [slimeFrame(0), slimeFrame(1)] },
+  goblin: { key: "goblin", name: "고블린 척후병", title: "단검 도적", habitat: "잿빛 숲", cue: "긴 귀, 초록 피부, 보라 튜닉", tone: "orange", sprite: spriteSheet(32, 32, [goblinFrame(0), goblinFrame(1)]), frames: [goblinFrame(0), goblinFrame(1)] },
+  skeleton: { key: "skeleton", name: "해골 병사", title: "뼈 갑주", habitat: "폐광 회랑", cue: "두개골과 갈비뼈 실루엣", tone: "gold", sprite: spriteSheet(32, 32, [skeletonFrame(0), skeletonFrame(1)]), frames: [skeletonFrame(0), skeletonFrame(1)] },
+  zombie: { key: "zombie", name: "좀비 광부", title: "느린 부패자", habitat: "폐광 회랑", cue: "녹색 피부와 앞으로 뻗은 팔", tone: "neutral", sprite: spriteSheet(32, 32, [zombieFrame(0), zombieFrame(1)]), frames: [zombieFrame(0), zombieFrame(1)] },
+  vampire: { key: "vampire", name: "밤의 흡혈귀", title: "붉은 망토 귀족", habitat: "붉은 성채", cue: "검은 머리, 붉은 눈, 펼친 망토", tone: "pink", sprite: spriteSheet(32, 32, [vampireFrame(0), vampireFrame(1)]), frames: [vampireFrame(0), vampireFrame(1)] },
+  orc: { key: "orc", name: "오크 돌격병", title: "도끼 전위", habitat: "붉은 성채", cue: "큰 턱, 송곳니, 도끼 실루엣", tone: "orange", sprite: spriteSheet(32, 32, [orcFrame(0), orcFrame(1)]), frames: [orcFrame(0), orcFrame(1)] },
+  ghost: { key: "ghost", name: "협곡 귀신", title: "떠도는 혼백", habitat: "서리 협곡", cue: "흰 천처럼 흔들리는 하단부", tone: "cyan", sprite: spriteSheet(32, 32, [ghostFrame(0), ghostFrame(-1)]), frames: [ghostFrame(0), ghostFrame(-1)] },
+  wolf: { key: "wolf", name: "검은 늑대", title: "서리 추적자", habitat: "서리 협곡", cue: "낮은 네발 자세와 붉은 눈", tone: "neutral", sprite: spriteSheet(32, 32, [wolfFrame(0), wolfFrame(1)]), frames: [wolfFrame(0), wolfFrame(1)] },
+  boss: { key: "boss", name: "무명의 수문장", title: "왕좌의 그림자", habitat: "심연", cue: "거대한 검은 형체와 붉은 핵", tone: "pink", sprite: spriteSheet(32, 32, [bossFrame(0), bossFrame(2)]), frames: [bossFrame(0), bossFrame(2)] },
 };
 
 const REGION_MONSTER_KEYS: Record<RegionId, MonsterKey[]> = {
@@ -1243,23 +1249,35 @@ function ShopItem({ icon: Icon, title, price, text, onBuy }: { icon: typeof Hamm
   );
 }
 
+function DirectPixelSprite({ frames, width, height, className, title }: { frames: PixelRect[][]; width: number; height: number; className: string; title?: string }) {
+  return (
+    <svg className={`direct-pixel-sprite ${className}`} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={title ?? "pixel sprite"} shapeRendering="crispEdges">
+      {frames.map((frame, frameIndex) => (
+        <g className={`sprite-frame sprite-frame-${frameIndex}`} key={frameIndex}>
+          {frame.map(([x, y, w, h, color], index) => (
+            <rect key={`${frameIndex}-${index}`} x={x} y={y} width={w} height={h} fill={color} />
+          ))}
+        </g>
+      ))}
+    </svg>
+  );
+}
+
 function PixelAdventurer({ size = "hero" }: { size?: "hero" | "card" | "mini" }) {
-  const scale = size === "hero" ? 3.7 : size === "card" ? 2.2 : 1.2;
   return (
     <div className={`pixel-adventurer pixel-adventurer-${size}`} aria-hidden="true">
       <span className="pa-shadow" />
       <div className="pixel-motion-frame hero-sprite-frame">
-        <PixelMotion sprite={HERO_SPRITE} width={48} height={52} frameCount={2} fps={2} scale={scale} shouldAnimate direction="horizontal" />
+        <DirectPixelSprite frames={HERO_FRAMES} width={48} height={52} className="hero-direct-sprite" title="붉은 망토 용사 로안" />
       </div>
     </div>
   );
 }
 
 function PixelMonster({ profile, variant = "large" }: { profile: MonsterProfile; variant?: "large" | "chip" | "world" }) {
-  const scale = variant === "large" ? 4.1 : variant === "world" ? 2.35 : 1.35;
   return (
     <div className={`pixel-monster pixel-monster-${variant} monster-${profile.key}`} aria-hidden="true">
-      <PixelMotion sprite={profile.sprite} width={32} height={32} frameCount={2} fps={variant === "chip" ? 1.5 : 2.2} scale={scale} shouldAnimate direction="horizontal" />
+      <DirectPixelSprite frames={profile.frames} width={32} height={32} className="monster-direct-sprite" title={profile.name} />
     </div>
   );
 }
