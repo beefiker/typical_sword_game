@@ -3935,44 +3935,49 @@ button:active:not(:disabled),
 }
 
 
-/* Floating action panel */
+/* Node detail + action panel — sits below canvas as a flex child */
 .skt-float-panel {
-  position: absolute; bottom: 0; left: 0; right: 0;
-  background: rgba(14,10,22,0.97);
+  flex-shrink: 0;
+  background: linear-gradient(180deg, #0e0a1a 0%, #0a0612 100%);
   border-top: 2px solid #5a4a2a;
-  border-color: #7a6a3a #3a2a18 #241810 #9a8a4a;
-  padding: 11px 14px;
-  display: flex; align-items: center; gap: 10px;
-  z-index: 10;
-  backdrop-filter: blur(6px);
-  animation: skt-float-in 0.18s ease-out;
+  padding: 12px 14px 14px;
+  display: flex; flex-direction: column; gap: 8px;
+  animation: skt-float-in 0.15s ease-out;
 }
-@keyframes skt-float-in { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes skt-float-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
-.skt-float-info { flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.skt-float-header {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;
+}
+.skt-float-info { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .skt-float-info strong { font-size: 13px; color: #e8d5a0; font-family: "Silkscreen", monospace; }
-.skt-float-info span   { font-size: 10px; color: #a0917a; font-family: "Silkscreen", monospace; line-height: 1.4; }
+.skt-float-info span   { font-size: 10px; color: #a0917a; font-family: "Silkscreen", monospace; line-height: 1.5; }
 .skt-float-cost   { color: #f8de22 !important; }
 .skt-float-done   { color: #44cc66 !important; }
 .skt-float-locked { color: #7a5a3a !important; }
 
 .skt-float-btn {
-  padding: 9px 14px;
+  width: 100%;
+  padding: 13px 16px;
   background: linear-gradient(180deg, #5a8a20 0%, #3a6010 100%);
   border: 2px solid;
   border-color: #7acc2a #2a5008 #1a3804 #9aea3a;
-  color: #d8ffa0; font-family: "Silkscreen", monospace; font-size: 10px;
-  cursor: pointer; white-space: nowrap;
+  color: #d8ffa0; font-family: "Silkscreen", monospace; font-size: 13px;
+  cursor: pointer; letter-spacing: 0.5px;
   transition: background 0.15s;
-  flex-shrink: 0;
+  box-shadow: 0 3px 0 #1a3004, 0 4px 0 rgba(0,0,0,0.4);
 }
-.skt-float-btn:not(:disabled):active { background: linear-gradient(180deg, #7aaa30 0%, #5a8018 100%); }
+.skt-float-btn:not(:disabled):active {
+  background: linear-gradient(180deg, #7aaa30 0%, #5a8018 100%);
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #1a3004;
+}
 .skt-float-btn:disabled {
   background: #1e1630; border-color: #2e2040 #160e28 #0e0820 #3e3050;
-  color: #4a3a5a; cursor: not-allowed;
+  color: #4a3a5a; cursor: not-allowed; box-shadow: none;
 }
 .skt-float-close {
-  width: 30px; height: 30px; flex-shrink: 0;
+  width: 28px; height: 28px; flex-shrink: 0;
   background: rgba(40,28,56,0.8); border: 1px solid #3a2a4a;
   color: #7a6a8a; font-size: 14px; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
