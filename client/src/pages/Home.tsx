@@ -12,12 +12,14 @@ import {
   Award,
   BadgePercent,
   Boxes,
+  Check,
   CircleDollarSign,
   Clock3,
   Flame,
   FlaskConical,
   Hammer,
   History,
+  Lock,
   PackageOpen,
   Pickaxe,
   ShieldCheck,
@@ -896,6 +898,9 @@ export default function Home() {
   const [offlineSummary, setOfflineSummary] = useState<string | null>(null);
   const [dangerMode, setDangerMode] = useState(false);
   const [showGoldHud, setShowGoldHud] = useState(false);
+  const [traitBranchIdx, setTraitBranchIdx] = useState(0);
+  const [selectedTraitNode, setSelectedTraitNode] = useState<{ branch: TraitBranch; idx: number } | null>(null);
+  const traitTouchX = useRef(0);
   const initialized = useRef(false);
   const derived = useMemo(() => derive(state), [state]);
 
@@ -1497,55 +1502,138 @@ export default function Home() {
             </div>
           ) : null}
 
-          {activeTab === "traits" ? (
-            <div className="panel console-panel">
-              <SectionTitle icon={Sparkles} title="특성 트리" eyebrow={`포인트 ${derived.traitPointsAvailable}pt 보유`} />
-              <p className="trait-hint">노드를 순서대로 활성화하세요. 이전 노드가 활성화되어야 다음 노드를 열 수 있습니다.</p>
-              <div className="trait-branches">
-                {(Object.keys(TRAIT_BRANCHES) as TraitBranch[]).map((branch) => {
-                  const info = TRAIT_BRANCHES[branch];
-                  const BranchIcon = info.icon;
-                  const traitVal = state.traits[branch];
-                  return (
-                    <div className={`trait-branch tone-border-${info.tone}`} key={branch}>
-                      <div className="trait-branch-header">
-                        <BranchIcon size={15} />
-                        <strong>{info.label}</strong>
-                        <span className="trait-branch-val">{traitVal} / {TRAIT_NODE_THRESHOLDS[TRAIT_NODE_THRESHOLDS.length - 1]}</span>
-                      </div>
-                      <div className="trait-node-chain">
-                        {info.nodes.map((node, idx) => {
-                          const threshold = TRAIT_NODE_THRESHOLDS[idx];
-                          const prevThreshold = idx === 0 ? 0 : TRAIT_NODE_THRESHOLDS[idx - 1];
-                          const isActive = traitVal >= threshold;
-                          const isNext   = !isActive && traitVal >= prevThreshold;
-                          const isHidden = !isActive && !isNext;
-                          const cost     = threshold - (isActive ? threshold : traitVal >= prevThreshold ? traitVal : prevThreshold);
-                          const canAfford = derived.traitPointsAvailable >= (threshold - traitVal);
-                          return (
-                            <div className="trait-node-wrap" key={idx}>
-                              {idx > 0 && <div className={`trait-connector ${isActive ? "lit" : ""}`} />}
-                              <button
-                                className={`trait-node ${isActive ? "active" : isNext ? "next" : "locked"}`}
-                                onClick={() => activateTraitNode(branch, idx)}
-                                disabled={!isNext || !canAfford}
-                                title={node.desc}
-                              >
-                                <span className="node-name">{isHidden ? "???" : node.name}</span>
-                                {isNext && <span className="node-cost">{threshold - traitVal}pt</span>}
-                                {isActive && <span className="node-check">✓</span>}
-                                {!isHidden && <span className="node-desc">{node.desc}</span>}
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
+          {activeTab === "traits" ? (() => {
+            const branches = Object.keys(TRAIT_BRANCHES) as TraitBranch[];
+            const currentBranch = branches[traitBranchIdx];
+            const CurrentIcon = TRAIT_BRANCHES[currentBranch].icon;
+            const currentTraitVal = state.traits[currentBranch];
+
+            const goToBranch = (i: number) => {
+              setTraitBranchIdx(Math.max(0, Math.min(i, branches.length - 1)));
+              setSelectedTraitNode(null);
+            };
+
+            const handleTouchStart = (e: React.TouchEvent) => {
+              traitTouchX.current = e.touches[0].clientX;
+            };
+            const handleTouchEnd = (e: React.TouchEvent) => {
+              const dx = e.changedTouches[0].clientX - traitTouchX.current;
+              if (Math.abs(dx) > 44) {
+                goToBranch(traitBranchIdx + (dx < 0 ? 1 : -1));
+              }
+            };
+
+            const floatBranch = selectedTraitNode?.branch;
+            const floatIdx    = selectedTraitNode?.idx ?? -1;
+            const floatNode   = floatBranch != null ? TRAIT_BRANCHES[floatBranch].nodes[floatIdx] : null;
+            const floatThresh = floatIdx >= 0 ? TRAIT_NODE_THRESHOLDS[floatIdx] : 0;
+            const floatPrev   = floatIdx > 0 ? TRAIT_NODE_THRESHOLDS[floatIdx - 1] : 0;
+            const floatVal    = floatBranch != null ? state.traits[floatBranch] : 0;
+            const floatActive = floatVal >= floatThresh;
+            const floatNext   = !floatActive && floatVal >= floatPrev;
+            const floatHidden = !floatActive && !floatNext;
+            const floatCost   = floatThresh - floatVal;
+            const floatAfford = derived.traitPointsAvailable >= floatCost;
+
+            return (
+              <div className="skt-panel">
+                {/* Branch navigator */}
+                <div className="skt-nav">
+                  <button className="skt-nav-btn" onClick={() => goToBranch(traitBranchIdx - 1)} disabled={traitBranchIdx === 0} aria-label="이전 특성">‹</button>
+                  <div className="skt-nav-center">
+                    <CurrentIcon size={16} />
+                    <span className="skt-branch-name">{TRAIT_BRANCHES[currentBranch].label}</span>
+                    <span className="skt-pts-badge">{currentTraitVal} / {TRAIT_NODE_THRESHOLDS[TRAIT_NODE_THRESHOLDS.length - 1]}</span>
+                  </div>
+                  <button className="skt-nav-btn" onClick={() => goToBranch(traitBranchIdx + 1)} disabled={traitBranchIdx === branches.length - 1} aria-label="다음 특성">›</button>
+                </div>
+
+                {/* Dot indicators + points */}
+                <div className="skt-sub-bar">
+                  <div className="skt-dots">
+                    {branches.map((b, i) => (
+                      <button key={b} className={`skt-dot${i === traitBranchIdx ? " on" : ""}`} onClick={() => goToBranch(i)} aria-label={TRAIT_BRANCHES[b].label} />
+                    ))}
+                  </div>
+                  <span className="skt-avail-pts"><Sparkles size={11} /> {derived.traitPointsAvailable}pt 보유</span>
+                </div>
+
+                {/* Sliding viewport */}
+                <div className="skt-viewport" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+                  <div className="skt-track" style={{ transform: `translateX(-${traitBranchIdx * 100}%)` }}>
+                    {branches.map((branch) => {
+                      const bInfo = TRAIT_BRANCHES[branch];
+                      const BIcon = bInfo.icon;
+                      const bVal  = state.traits[branch];
+                      return (
+                        <div className="skt-branch-page" key={branch}>
+                          {bInfo.nodes.map((node, idx) => {
+                            const threshold = TRAIT_NODE_THRESHOLDS[idx];
+                            const prevThreshold = idx === 0 ? 0 : TRAIT_NODE_THRESHOLDS[idx - 1];
+                            const isActive  = bVal >= threshold;
+                            const isNext    = !isActive && bVal >= prevThreshold;
+                            const isHidden  = !isActive && !isNext;
+                            const isSelected = selectedTraitNode?.branch === branch && selectedTraitNode.idx === idx;
+                            const lineLit   = idx > 0 && bVal >= prevThreshold;
+
+                            return (
+                              <div className="skt-node-row" key={idx}>
+                                {idx > 0 && <div className={`skt-line${lineLit ? " lit" : ""} skt-tone-${bInfo.tone}`} />}
+                                <div className={`skt-node-wrap${isSelected ? " selected" : ""}`}>
+                                  <button
+                                    className={`skt-node skt-${isActive ? "active" : isNext ? "next" : "locked"} skt-tone-${bInfo.tone}`}
+                                    onClick={() => setSelectedTraitNode(
+                                      isSelected ? null : { branch, idx }
+                                    )}
+                                    aria-pressed={isSelected}
+                                  >
+                                    {isActive  ? <Check size={22} strokeWidth={3} /> :
+                                     isHidden  ? <Lock  size={18} /> :
+                                                 <BIcon size={22} />}
+                                  </button>
+                                  <div className="skt-node-info">
+                                    <span className="skt-node-name">{isHidden ? "???" : node.name}</span>
+                                    {isSelected && !isHidden && <span className="skt-node-desc">{node.desc}</span>}
+                                    {isActive && !isSelected && <span className="skt-active-label">✓ 활성화</span>}
+                                    {isNext   && !isSelected && <span className="skt-cost-label">{threshold - bVal}pt</span>}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Floating detail + action panel */}
+                {selectedTraitNode && floatNode && (
+                  <div className="skt-float-panel">
+                    <div className="skt-float-info">
+                      <strong>{floatHidden ? "???" : floatNode.name}</strong>
+                      {!floatHidden && <span>{floatNode.desc}</span>}
+                      {floatActive && <span className="skt-float-done">이미 활성화됨</span>}
+                      {floatNext   && <span className="skt-float-cost">{floatCost}pt 필요</span>}
+                      {floatHidden && <span className="skt-float-locked">이전 노드를 먼저 활성화하세요</span>}
                     </div>
-                  );
-                })}
+                    {floatNext && (
+                      <button
+                        className="skt-float-btn"
+                        disabled={!floatAfford}
+                        onClick={() => { activateTraitNode(floatBranch!, floatIdx); setSelectedTraitNode(null); }}
+                      >
+                        {floatAfford ? `활성화 (${floatCost}pt)` : `부족 (${floatCost}pt)`}
+                      </button>
+                    )}
+                    {(floatActive || floatHidden) && (
+                      <button className="skt-float-close" onClick={() => setSelectedTraitNode(null)}>✕</button>
+                    )}
+                  </div>
+                )}
               </div>
-            </div>
-          ) : null}
+            );
+          })() : null}
 
           {activeTab === "prestige" ? (() => {
             const canPrestige = state.enhance >= 32 && state.level >= 35 && state.bossesKilled >= 5;
