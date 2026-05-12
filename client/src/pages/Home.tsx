@@ -190,6 +190,7 @@ type GameState = {
   monsterHp: number;
   inventory: Inventory;
   traits: Traits;
+  unlockedTraits: { smith: number[]; hunter: number[]; merchant: number[] };
   prestige: number;
   prestigeStones: number;
   totalPrestigeStones: number;
@@ -497,418 +498,163 @@ const MATERIAL_LABELS: Record<MaterialKey, string> = {
   abyssCore: "심연핵",
 };
 
-// Node thresholds: cumulative trait points required to reach each node
-// 100 nodes per branch: nodes 0-49 cost 1pt, 50-79 cost 2pt, 80-99 cost 3pt → max 170pt per branch
-const TRAIT_NODE_THRESHOLDS: number[] = (() => {
-  const out: number[] = [];
-  let c = 0;
-  for (let i = 0; i < 100; i++) { c += i < 50 ? 1 : i < 80 ? 2 : 3; out.push(c); }
-  return out;
-})();
+type NodeFx = { cst?: number; suc?: number; dst?: number; atk?: number; dps?: number; clk?: number; gld?: number; sle?: number; dis?: number; exp?: number; mat?: number };
+type TraitNodeDef = { name: string; desc: string; pos: [number, number]; req: number[]; cost: number; fx: NodeFx };
 
-type TraitNodeDef = { name: string; desc: string };
-
-// Clockwise spiral positions for 100 nodes on a 10×10 grid.
-// Consecutive nodes are always orthogonally adjacent (horizontal OR vertical only),
-// giving the 4-direction connection look of KoM.
-const SPIRAL_POS: [number, number][] = (() => {
-  const pos: [number, number][] = [];
-  let t = 0, b = 9, l = 0, r = 9;
-  while (pos.length < 100) {
-    for (let c = l; c <= r && pos.length < 100; c++) pos.push([c, t]); t++;
-    for (let rw = t; rw <= b && pos.length < 100; rw++) pos.push([r, rw]); r--;
-    for (let c = r; c >= l && pos.length < 100; c--) pos.push([c, b]); b--;
-    for (let rw = b; rw >= t && pos.length < 100; rw--) pos.push([l, rw]); l++;
-  }
-  return pos;
-})();
-
-// Tier icon SVG paths (one per tier per branch, viewBox 0 0 20 20)
-const TIER_SVG_PATHS: Record<TraitBranch, string[]> = {
-  smith: [
-    "M3 14h14v-2H3v2zm2-2V9h10v3M7 9V6h6v3",                                               // T0: Anvil
-    "M3 4h6v4H3zm5 3 8 9M7 6h2",                                                             // T1: Hammer
-    "M10 2c-1 3-5 6-3 10 .5 2 2 3 3 3s2.5-1 3-3c2-4-2-10-3-10z",                           // T2: Flame
-    "M4 6a4 4 0 015 5L14 17l2-2L11 11A4 4 0 014 6z",                                        // T3: Wrench
-    "M10 7a3 3 0 100 6 3 3 0 000-6zm0-5v2m0 10v2M3 10h2m10 0h2",                            // T4: Gear
-    "M3 8l2-4h10l2 4H3zm0 0v6h14V8",                                                         // T5: Ingot
-    "M10 2L4 5v5c0 4 2.5 6.5 6 7.5 3.5-1 6-3.5 6-7.5V5z",                                  // T6: Shield
-    "M10 1L5 8l5 11 5-11zm0 0 3 7H7",                                                        // T7: Fire diamond
-    "M4 3c1 1 4 4 4 7s-3 6-4 7m8-14c1 1 4 4 4 7s-3 6-4 7M6 8h8M6 12h8",                    // T8: Double helix
-    "M2 15h16M3 15l2-7 3 3.5L10 5l2.5 7.5 3-3.5 2 7",                                       // T9: Crown
-  ],
-  hunter: [
-    "M2 10s4-6 8-6 8 6 8 6-4 6-8 6-8-6-8-6zm8-2a2 2 0 100 4 2 2 0 000-4",                  // T0: Eye
-    "M2 10h14m-5-5 5 5-5 5",                                                                  // T1: Arrow
-    "M10 14V9m-3 4V9m6 4V9M5 9l5-5 5 5",                                                     // T2: Claws
-    "M10 4v3m0 6v3M4 10h3m6 0h3m-4-4a4 4 0 100 8 4 4 0 000-8",                              // T3: Crosshair
-    "M12 2L7 10h5L8 18",                                                                      // T4: Lightning
-    "M4 16L14 6M5 12l-2 5 5-2m9-9v2h2",                                                      // T5: Sword
-    "M3 16c1-1 5-3 8-8 2-3 3-6 3-6s-2 1-4 4L5 10",                                          // T6: Wing
-    "M1 8l5 2-3 4.5L10 10m9-2-5 2 3 4.5L10 10",                                              // T7: Eagle wings
-    "M10 4s-4 3-4 6h8c0-3-4-6-4-6zm-2.5 6-1.5 4m5-4 1.5 4m-2.5-8a1.5 1.5 0 100 3 1.5 1.5 0 000-3", // T8: Phoenix
-    "M10 2l2.2 5.5H18l-4.7 3.5 1.8 5.5L10 13.5l-5 3.5 1.8-5.5L2 7.5h5.8z",                 // T9: Star
-  ],
-  merchant: [
-    "M10 3a7 7 0 100 14A7 7 0 0010 3zm0 4v1.5m0 3V13",                                       // T0: Coin
-    "M6 8c0-2.5 2-4 4-4s4 1.5 4 4v1H6zm-1 1h10l-1.5 8h-7z",                                 // T1: Money bag
-    "M10 2v14M4 16h12M4 8l6-4 6 4M4 8l-2 5h4zM16 8l2 5h-4z",                                // T2: Balance scale
-    "M4 8l6-6 6 6-6 9zm-1 0 1-2m13 2-1-2M3 8h14",                                            // T3: Diamond
-    "M7 6a4 4 0 100 8 4 4 0 000-8zm4 4h7m-3-2v4",                                            // T4: Key
-    "M3 17L15 5M10 4l2 1.5 2-1-.5 2 1.5 1.5-2-.5-1.5 2-.5-2.5z",                            // T5: Magic wand
-    "M3 14h14M3 14l2-7 3 3.5L10 5l2 6 3-3.5 2 7",                                            // T6: Crown
-    "M3 9h14l-1 9H4zm0 0V7a2 2 0 012-2h10a2 2 0 012 2v2M9 11h2v4H9z",                       // T7: Treasure chest
-    "M16 10A6 6 0 104 10A6 6 0 1016 10M14 10A4 4 0 106 10A4 4 0 1014 10M12 10A2 2 0 108 10A2 2 0 1012 10", // T8: Rings
-    "M10 2l2.2 5.5H18l-4.7 3.5 1.8 5.5L10 13.5l-5 3.5 1.8-5.5L2 7.5h5.8z",                 // T9: Radiant star
-  ],
+// Per-fx SVG icon paths (viewBox 0 0 20 20)
+const FX_SVG: Record<string, string> = {
+  cst: "M3 14h14v-2H3v2zm2-2V9h10v3M7 9V6h6v3",
+  suc: "M10 2l2.2 5.5H18l-4.7 3.5 1.8 5.5L10 13.5l-5 3.5 1.8-5.5L2 7.5h5.8z",
+  dst: "M10 2L4 5v5c0 4 2.5 6.5 6 7.5 3.5-1 6-3.5 6-7.5V5z",
+  atk: "M12 2L7 10h5L8 18",
+  dps: "M4 16L14 6M5 12l-2 5 5-2m9-9v2h2",
+  clk: "M10 4v3m0 6v3M4 10h3m6 0h3m-4-4a4 4 0 100 8 4 4 0 000-8",
+  gld: "M10 3a7 7 0 100 14A7 7 0 0010 3zm0 4v1.5m0 3V13",
+  sle: "M10 2v14M4 16h12M4 8l6-4 6 4M4 8l-2 5h4zM16 8l2 5h-4z",
+  dis: "M7 6a4 4 0 100 8 4 4 0 000-8zm4 4h7m-3-2v4",
+  exp: "M2 15h16M3 15l2-7 3 3.5L10 5l2.5 7.5 3-3.5 2 7",
+  mat: "M4 16L14 6M5 12l-2 5 5-2m9-9v2h2",
+  root: "M10 3c-3.5 0-7 2.5-7 7s3.5 7 7 7 7-2.5 7-7-3.5-7-7-7zm-1 4h2v4H9zm0 5h2v2H9z",
+  milestone: "M3 10L5 5l2.5 1.5L10 2l2.5 4.5L15 5l2 5H3z",
 };
 
+function getNodeIcon(node: TraitNodeDef, isMilestone: boolean): string {
+  if (isMilestone) return FX_SVG.milestone;
+  const fxEntries = Object.entries(node.fx) as [string, number][];
+  if (!fxEntries.length) return FX_SVG.root;
+  return FX_SVG[fxEntries.sort((a, b) => b[1] - a[1])[0][0]] ?? FX_SVG.root;
+}
+
+function sumTraitFx(unlocked: number[], nodes: TraitNodeDef[]): NodeFx {
+  return unlocked.reduce((acc, i) => {
+    const fx = nodes[i]?.fx ?? {};
+    return {
+      cst: (acc.cst ?? 0) + (fx.cst ?? 0),
+      suc: (acc.suc ?? 0) + (fx.suc ?? 0),
+      dst: (acc.dst ?? 0) + (fx.dst ?? 0),
+      atk: (acc.atk ?? 0) + (fx.atk ?? 0),
+      dps: (acc.dps ?? 0) + (fx.dps ?? 0),
+      clk: (acc.clk ?? 0) + (fx.clk ?? 0),
+      gld: (acc.gld ?? 0) + (fx.gld ?? 0),
+      sle: (acc.sle ?? 0) + (fx.sle ?? 0),
+      dis: (acc.dis ?? 0) + (fx.dis ?? 0),
+      exp: (acc.exp ?? 0) + (fx.exp ?? 0),
+      mat: (acc.mat ?? 0) + (fx.mat ?? 0),
+    };
+  }, {} as NodeFx);
+}
+
+// Diamond graph layout: 9 cols × 8 rows, 23 nodes per branch
+// Each node has explicit prerequisites — multiple branching paths, milestone merges
 const TRAIT_BRANCHES: Record<TraitBranch, {
   label: string; icon: typeof Hammer; tone: LogTone; nodes: TraitNodeDef[];
 }> = {
   smith: {
     label: "대장장이", icon: Hammer, tone: "cyan",
     nodes: [
-      /* T1 수습 (0-9, 1pt) */
-      { name: "메탈 감각",       desc: "강화 비용 -1%" },
-      { name: "집중의 눈",       desc: "성공률 +0.5%" },
-      { name: "기초 망치질",     desc: "강화 비용 -1%" },
-      { name: "숨결 조율",       desc: "성공률 +0.5%" },
-      { name: "풀무 제어",       desc: "강화 비용 -1%" },
-      { name: "열처리 감각",     desc: "성공률 +0.5%" },
-      { name: "슬래그 제거",     desc: "파괴율 -1%" },
-      { name: "불꽃 조절",       desc: "강화 비용 -1.5%" },
-      { name: "균열 탐지",       desc: "파괴율 -1%" },
-      { name: "★ 수습 완료",    desc: "강화 비용 -2% · 성공률 +1%" },
-      /* T2 견습 (10-19, 1pt) */
-      { name: "날선 눈매",       desc: "파괴율 -1.5%" },
-      { name: "경험 축적",       desc: "강화 비용 -1.5%" },
-      { name: "예비 타격",       desc: "성공률 +0.8%" },
-      { name: "합금 이해",       desc: "파괴율 -1.5%" },
-      { name: "화력 조율",       desc: "강화 비용 -1.5%" },
-      { name: "정밀 타격",       desc: "성공률 +0.8%" },
-      { name: "취약점 분석",     desc: "파괴율 -2%" },
-      { name: "효율 가열",       desc: "강화 비용 -2%" },
-      { name: "안전 제련",       desc: "성공률 +1%" },
-      { name: "★ 견습 완료",    desc: "강화 비용 -3% · 파괴율 -3%" },
-      /* T3 숙련 (20-29, 1pt) */
-      { name: "금속 공명",       desc: "성공률 +1%" },
-      { name: "압력 조율",       desc: "강화 비용 -2%" },
-      { name: "담금질 심화",     desc: "파괴율 -2%" },
-      { name: "결정 분석",       desc: "성공률 +1.2%" },
-      { name: "냉각 제어",       desc: "파괴율 -2%" },
-      { name: "정교한 타격",     desc: "강화 비용 -2%" },
-      { name: "재료 절약",       desc: "강화 비용 -2.5%" },
-      { name: "단열 처리",       desc: "파괴율 -2.5%" },
-      { name: "제련 가속",       desc: "성공률 +1.2%" },
-      { name: "★ 숙련 완료",    desc: "강화 비용 -4% · 성공률 +2%" },
-      /* T4 장인 (30-39, 1pt) */
-      { name: "분자 결합",       desc: "파괴율 -3%" },
-      { name: "극한 가열",       desc: "강화 비용 -3%" },
-      { name: "미세 보정",       desc: "성공률 +1.5%" },
-      { name: "합금 조율",       desc: "파괴율 -3%" },
-      { name: "진동 제어",       desc: "강화 비용 -3%" },
-      { name: "집중 단조",       desc: "성공률 +1.5%" },
-      { name: "이중 담금질",     desc: "파괴율 -3.5%" },
-      { name: "압축 제련",       desc: "강화 비용 -3.5%" },
-      { name: "잔류 분석",       desc: "성공률 +2%" },
-      { name: "★ 장인 완료",    desc: "파괴율 -5% · 성공률 +2%" },
-      /* T5 명장 (40-49, 1pt) */
-      { name: "완벽한 합금",     desc: "강화 비용 -4%" },
-      { name: "균형 단조",       desc: "성공률 +2%" },
-      { name: "결정 구조 제어",  desc: "파괴율 -4%" },
-      { name: "극한 정밀도",     desc: "강화 비용 -4%" },
-      { name: "기계적 직관",     desc: "성공률 +2.5%" },
-      { name: "전자기 조율",     desc: "파괴율 -4%" },
-      { name: "복합 담금질",     desc: "강화 비용 -4.5%" },
-      { name: "결함 제거",       desc: "파괴율 -4.5%" },
-      { name: "완벽한 집중",     desc: "성공률 +2.5%" },
-      { name: "★ 명장 완료",    desc: "강화 비용 -6% · 파괴율 -6%" },
-      /* T6 제련사 (50-59, 2pt) */
-      { name: "금속 이해",       desc: "성공률 +3%" },
-      { name: "열역학 마스터",   desc: "강화 비용 -5%" },
-      { name: "결정 배열",       desc: "파괴율 -5%" },
-      { name: "역방향 분석",     desc: "성공률 +3%" },
-      { name: "초정밀 작업",     desc: "강화 비용 -5%" },
-      { name: "원자 결합",       desc: "파괴율 -5%" },
-      { name: "고속 단조",       desc: "강화 비용 -5.5%" },
-      { name: "완벽한 시야",     desc: "성공률 +3.5%" },
-      { name: "불멸의 기법",     desc: "파괴율 -5.5%" },
-      { name: "★ 제련사 달성",  desc: "강화 비용 -7% · 성공률 +4%" },
-      /* T7 수석 제련사 (60-69, 2pt) */
-      { name: "절대 집중",       desc: "파괴율 -6%" },
-      { name: "신비 합금",       desc: "강화 비용 -6%" },
-      { name: "완전 담금질",     desc: "성공률 +4%" },
-      { name: "무한 정밀도",     desc: "파괴율 -6%" },
-      { name: "신화 단조",       desc: "강화 비용 -6.5%" },
-      { name: "완벽한 구조",     desc: "성공률 +4%" },
-      { name: "극한 담금질",     desc: "파괴율 -7%" },
-      { name: "전설적 기술",     desc: "강화 비용 -7%" },
-      { name: "완벽한 직관",     desc: "성공률 +4.5%" },
-      { name: "★ 수석 달성",    desc: "파괴율 -8% · 성공률 +5%" },
-      /* T8 불꽃의 장인 (70-79, 2pt) */
-      { name: "마스터 합금",     desc: "강화 비용 -7%" },
-      { name: "신의 손길",       desc: "성공률 +5%" },
-      { name: "불가능의 정복",   desc: "파괴율 -8%" },
-      { name: "완벽한 변환",     desc: "강화 비용 -7.5%" },
-      { name: "시간의 단련",     desc: "성공률 +5%" },
-      { name: "불멸의 구조",     desc: "파괴율 -9%" },
-      { name: "전설의 불꽃",     desc: "강화 비용 -8%" },
-      { name: "신화의 담금질",   desc: "성공률 +5.5%" },
-      { name: "초월의 합금",     desc: "파괴율 -9%" },
-      { name: "★ 불꽃 달성",    desc: "강화 비용 -10% · 파괴율 -10%" },
-      /* T9 전설의 대장장이 (80-89, 3pt) */
-      { name: "신화 단조술",     desc: "성공률 +6%" },
-      { name: "불멸의 열처리",   desc: "강화 비용 -9%" },
-      { name: "절대 구조",       desc: "파괴율 -10%" },
-      { name: "신화 결합",       desc: "성공률 +6%" },
-      { name: "천지 단조",       desc: "강화 비용 -10%" },
-      { name: "신성한 담금질",   desc: "파괴율 -11%" },
-      { name: "우주 결합",       desc: "성공률 +7%" },
-      { name: "영원의 기법",     desc: "강화 비용 -10%" },
-      { name: "절대 완성",       desc: "파괴율 -12%" },
-      { name: "★ 전설 달성",    desc: "강화 비용 -12% · 성공률 +8%" },
-      /* T10 신화의 대장장이 (90-99, 3pt) */
-      { name: "신화 완성도",     desc: "파괴율 -12%" },
-      { name: "초월적 정밀도",   desc: "성공률 +8%" },
-      { name: "영원한 강화",     desc: "강화 비용 -12%" },
-      { name: "신의 제련",       desc: "파괴율 -13%" },
-      { name: "우주적 직관",     desc: "성공률 +9%" },
-      { name: "절대 효율",       desc: "강화 비용 -13%" },
-      { name: "신성 담금질",     desc: "파괴율 -14%" },
-      { name: "전설의 완성",     desc: "성공률 +10%" },
-      { name: "신화의 칼날",     desc: "강화 비용 -14% · 파괴율 -14%" },
-      { name: "★ 신화 달성",    desc: "강화 비용 -15% · 성공률 +10% · 파괴율 -15%" },
+      //  0: root
+      { name: "철강의 씨앗",    desc: "강화의 길을 시작합니다",           pos: [4,0], req: [],     cost: 0, fx: {} },
+      //  1-3: row 1 branches
+      { name: "무게 배분",      desc: "강화 비용 -2%",                    pos: [2,1], req: [0],    cost: 1, fx: { cst: 2 } },
+      { name: "화력 집중",      desc: "강화 성공률 +0.5%",                pos: [4,1], req: [0],    cost: 1, fx: { suc: 0.5 } },
+      { name: "충격 억제",      desc: "파괴율 -0.5%",                     pos: [6,1], req: [0],    cost: 1, fx: { dst: 0.5 } },
+      //  4-7: row 2
+      { name: "장인의 절약",    desc: "강화 비용 -2%",                    pos: [1,2], req: [1],    cost: 1, fx: { cst: 2 } },
+      { name: "정밀 단조",      desc: "성공률 +0.8% · 비용 -1%",          pos: [3,2], req: [1,2],  cost: 1, fx: { suc: 0.8, cst: 1 } },
+      { name: "예리한 감각",    desc: "강화 성공률 +1%",                  pos: [5,2], req: [2,3],  cost: 1, fx: { suc: 1 } },
+      { name: "균열 탐지",      desc: "파괴율 -1%",                       pos: [7,2], req: [3],    cost: 1, fx: { dst: 1 } },
+      //  8-12: row 3 (milestone: 10)
+      { name: "효율적 단조",    desc: "강화 비용 -3%",                    pos: [0,3], req: [4],    cost: 2, fx: { cst: 3 } },
+      { name: "강화 최적화",    desc: "성공률 +1% · 비용 -2%",            pos: [2,3], req: [4,5],  cost: 2, fx: { suc: 1, cst: 2 } },
+      { name: "★ 마스터 제련", desc: "성공률 +1.5% · 파괴율 -1.5%",      pos: [4,3], req: [5,6],  cost: 2, fx: { suc: 1.5, dst: 1.5 } },
+      { name: "극한 방어",      desc: "파괴율 -2%",                       pos: [6,3], req: [6,7],  cost: 2, fx: { dst: 2 } },
+      { name: "내충격 구조",    desc: "파괴율 -2.5%",                     pos: [8,3], req: [7],    cost: 2, fx: { dst: 2.5 } },
+      // 13-16: row 4
+      { name: "무한 절약",      desc: "강화 비용 -4%",                    pos: [1,4], req: [8,9],  cost: 2, fx: { cst: 4 } },
+      { name: "완벽한 조율",    desc: "비용 -3% · 성공률 +1.5%",          pos: [3,4], req: [9,10], cost: 2, fx: { cst: 3, suc: 1.5 } },
+      { name: "정밀 구조",      desc: "성공률 +2% · 파괴율 -2%",          pos: [5,4], req: [10,11],cost: 2, fx: { suc: 2, dst: 2 } },
+      { name: "파괴 극복",      desc: "파괴율 -3%",                       pos: [7,4], req: [11,12],cost: 2, fx: { dst: 3 } },
+      // 17-19: row 5 (milestone: 18)
+      { name: "전설의 효율",    desc: "강화 비용 -5%",                    pos: [2,5], req: [13,14],cost: 3, fx: { cst: 5 } },
+      { name: "★ 고장인",      desc: "성공률 +3% · 비용 -3%",            pos: [4,5], req: [14,15],cost: 3, fx: { suc: 3, cst: 3 } },
+      { name: "영혼 방어막",    desc: "파괴율 -4%",                       pos: [6,5], req: [15,16],cost: 3, fx: { dst: 4 } },
+      // 20-21: row 6
+      { name: "신화 절약",      desc: "비용 -6% · 성공률 +2%",            pos: [3,6], req: [17,18],cost: 3, fx: { cst: 6, suc: 2 } },
+      { name: "불멸의 구조",    desc: "파괴율 -5% · 성공률 +2%",          pos: [5,6], req: [18,19],cost: 3, fx: { dst: 5, suc: 2 } },
+      // 22: capstone
+      { name: "★★ 전설의 대장장이", desc: "비용 -8% · 성공률 +4% · 파괴율 -5%", pos: [4,7], req: [20,21], cost: 5, fx: { cst: 8, suc: 4, dst: 5 } },
     ],
   },
   hunter: {
     label: "사냥꾼", icon: Target, tone: "orange",
     nodes: [
-      /* T1 입문 (0-9, 1pt) */
-      { name: "날카로운 시야",   desc: "공격력 +0.5%" },
-      { name: "빠른 발",         desc: "DPS +1%" },
-      { name: "집중 추적",       desc: "공격력 +0.5%" },
-      { name: "민첩성",          desc: "클릭 피해 +1%" },
-      { name: "사냥 본능",       desc: "공격력 +0.5%" },
-      { name: "위기 감지",       desc: "DPS +1%" },
-      { name: "전장 분석",       desc: "경험치 +1%" },
-      { name: "급소 탐지",       desc: "공격력 +1%" },
-      { name: "소재 수집",       desc: "재료 확률 +1%" },
-      { name: "★ 입문 달성",    desc: "공격력 +1% · DPS +2%" },
-      /* T2 견습 (10-19, 1pt) */
-      { name: "야생 감각",       desc: "공격력 +1%" },
-      { name: "전투 집중",       desc: "DPS +1.5%" },
-      { name: "예리한 판단",     desc: "클릭 피해 +1.5%" },
-      { name: "적 분석",         desc: "경험치 +1.5%" },
-      { name: "기습 전술",       desc: "공격력 +1%" },
-      { name: "고속 추격",       desc: "DPS +1.5%" },
-      { name: "정확한 타격",     desc: "클릭 피해 +2%" },
-      { name: "포식자의 눈",     desc: "공격력 +1.5%" },
-      { name: "소재 감각",       desc: "재료 확률 +1.5%" },
-      { name: "★ 견습 달성",    desc: "공격력 +2% · DPS +2%" },
-      /* T3 숙련 (20-29, 1pt) */
-      { name: "전투 리듬",       desc: "DPS +2%" },
-      { name: "치명타 연구",     desc: "클릭 피해 +2%" },
-      { name: "먹이 추적",       desc: "공격력 +1.5%" },
-      { name: "함정 설치",       desc: "재료 확률 +2%" },
-      { name: "초고속 공격",     desc: "DPS +2%" },
-      { name: "급소 타격",       desc: "클릭 피해 +2.5%" },
-      { name: "경험 흡수",       desc: "경험치 +2%" },
-      { name: "연속 공격",       desc: "공격력 +2%" },
-      { name: "자연의 가르침",   desc: "재료 확률 +2%" },
-      { name: "★ 숙련 달성",    desc: "공격력 +3% · DPS +3%" },
-      /* T4 장인 (30-39, 1pt) */
-      { name: "맹수의 발톱",     desc: "공격력 +2%" },
-      { name: "전속력 추격",     desc: "DPS +2.5%" },
-      { name: "정밀 타격",       desc: "클릭 피해 +3%" },
-      { name: "전투 직관",       desc: "공격력 +2%" },
-      { name: "고급 추적",       desc: "재료 확률 +2.5%" },
-      { name: "연속 타격",       desc: "DPS +2.5%" },
-      { name: "극한 집중",       desc: "클릭 피해 +3%" },
-      { name: "포식의 경지",     desc: "공격력 +2.5%" },
-      { name: "경험 증폭",       desc: "경험치 +2.5%" },
-      { name: "★ 장인 달성",    desc: "DPS +4% · 클릭 피해 +4%" },
-      /* T5 명장 (40-49, 1pt) */
-      { name: "맹공",            desc: "공격력 +3%" },
-      { name: "극한 DPS",        desc: "DPS +3%" },
-      { name: "무한 추격",       desc: "클릭 피해 +3.5%" },
-      { name: "격분",            desc: "공격력 +3%" },
-      { name: "감각 증폭",       desc: "재료 확률 +3%" },
-      { name: "연속 연타",       desc: "DPS +3.5%" },
-      { name: "전장 지배",       desc: "클릭 피해 +4%" },
-      { name: "투사의 의지",     desc: "공격력 +3.5%" },
-      { name: "경험 폭발",       desc: "경험치 +3%" },
-      { name: "★ 명장 달성",    desc: "공격력 +5% · DPS +5%" },
-      /* T6 전사 (50-59, 2pt) */
-      { name: "전투 마스터",     desc: "DPS +4%" },
-      { name: "살상 본능",       desc: "공격력 +4%" },
-      { name: "정밀 작살",       desc: "클릭 피해 +4%" },
-      { name: "약점 노출",       desc: "재료 확률 +3.5%" },
-      { name: "극한 사냥",       desc: "DPS +4%" },
-      { name: "신속 공격",       desc: "클릭 피해 +4.5%" },
-      { name: "전장 경험",       desc: "경험치 +4%" },
-      { name: "절대 사냥",       desc: "공격력 +4%" },
-      { name: "강인한 의지",     desc: "DPS +4.5%" },
-      { name: "★ 전사 달성",    desc: "공격력 +6% · 클릭 피해 +6%" },
-      /* T7 고급 전사 (60-69, 2pt) */
-      { name: "신화 속도",       desc: "DPS +5%" },
-      { name: "극한 타격",       desc: "공격력 +5%" },
-      { name: "무한 의지",       desc: "클릭 피해 +5%" },
-      { name: "신화 감각",       desc: "재료 확률 +4%" },
-      { name: "절대 추격",       desc: "DPS +5%" },
-      { name: "영혼 타격",       desc: "클릭 피해 +5.5%" },
-      { name: "지식 흡수",       desc: "경험치 +5%" },
-      { name: "신화 공격",       desc: "공격력 +5.5%" },
-      { name: "무한 사냥",       desc: "DPS +5.5%" },
-      { name: "★ 고급 달성",    desc: "DPS +7% · 공격력 +7%" },
-      /* T8 전설 사냥꾼 (70-79, 2pt) */
-      { name: "신성한 속도",     desc: "DPS +6%" },
-      { name: "불멸의 공격",     desc: "공격력 +6%" },
-      { name: "신화 타격",       desc: "클릭 피해 +6%" },
-      { name: "절대 감각",       desc: "재료 확률 +5%" },
-      { name: "극한 추격",       desc: "DPS +6%" },
-      { name: "신성 타격",       desc: "클릭 피해 +6.5%" },
-      { name: "경험의 바다",     desc: "경험치 +6%" },
-      { name: "신화 맹공",       desc: "공격력 +6.5%" },
-      { name: "불멸의 추격",     desc: "DPS +7%" },
-      { name: "★ 전설 달성",    desc: "공격력 +10% · DPS +10%" },
-      /* T9 신화 사냥꾼 (80-89, 3pt) */
-      { name: "신화 본능",       desc: "클릭 피해 +7%" },
-      { name: "절대 포식",       desc: "공격력 +7%" },
-      { name: "무한 속도",       desc: "DPS +8%" },
-      { name: "신성한 타격",     desc: "클릭 피해 +7.5%" },
-      { name: "우주적 사냥",     desc: "공격력 +8%" },
-      { name: "시간 초월 속도",  desc: "DPS +8.5%" },
-      { name: "신화 경험",       desc: "경험치 +7%" },
-      { name: "절대 공격",       desc: "공격력 +8.5%" },
-      { name: "우주 관통",       desc: "클릭 피해 +8%" },
-      { name: "★ 신화 달성",    desc: "공격력 +12% · DPS +12%" },
-      /* T10 초월 사냥꾼 (90-99, 3pt) */
-      { name: "초월 본능",       desc: "재료 확률 +6%" },
-      { name: "신성 맹공",       desc: "공격력 +9%" },
-      { name: "우주 속도",       desc: "DPS +9%" },
-      { name: "절대 타격",       desc: "클릭 피해 +9%" },
-      { name: "신화 경지",       desc: "공격력 +10%" },
-      { name: "시간을 넘은 힘",  desc: "DPS +10%" },
-      { name: "우주적 정밀도",   desc: "클릭 피해 +10%" },
-      { name: "전설의 왕",       desc: "공격력 +11%" },
-      { name: "무한의 속도",     desc: "DPS +11%" },
-      { name: "★ 초월 달성",    desc: "공격력 +15% · DPS +15% · 클릭 피해 +15%" },
+      //  0: root
+      { name: "사냥의 시작",    desc: "전투의 길을 시작합니다",           pos: [4,0], req: [],     cost: 0, fx: {} },
+      //  1-3: row 1
+      { name: "날카로운 발톱",  desc: "공격력 +2%",                       pos: [2,1], req: [0],    cost: 1, fx: { atk: 2 } },
+      { name: "빠른 연격",      desc: "DPS +2%",                          pos: [4,1], req: [0],    cost: 1, fx: { dps: 2 } },
+      { name: "정밀 타격",      desc: "클릭 피해 +2%",                    pos: [6,1], req: [0],    cost: 1, fx: { clk: 2 } },
+      //  4-7: row 2
+      { name: "포식자의 본능",  desc: "공격력 +3%",                       pos: [1,2], req: [1],    cost: 1, fx: { atk: 3 } },
+      { name: "연속 돌격",      desc: "공격력 +2% · DPS +2%",             pos: [3,2], req: [1,2],  cost: 1, fx: { atk: 2, dps: 2 } },
+      { name: "고속 추격",      desc: "DPS +3% · 클릭 피해 +2%",          pos: [5,2], req: [2,3],  cost: 1, fx: { dps: 3, clk: 2 } },
+      { name: "급소 타격",      desc: "클릭 피해 +3%",                    pos: [7,2], req: [3],    cost: 1, fx: { clk: 3 } },
+      //  8-12: row 3 (milestone: 10)
+      { name: "맹수의 분노",    desc: "공격력 +4%",                       pos: [0,3], req: [4],    cost: 2, fx: { atk: 4 } },
+      { name: "전투 리듬",      desc: "공격력 +3% · 경험치 +3%",          pos: [2,3], req: [4,5],  cost: 2, fx: { atk: 3, exp: 3 } },
+      { name: "★ 전사의 경지", desc: "공격력 +4% · DPS +4%",             pos: [4,3], req: [5,6],  cost: 2, fx: { atk: 4, dps: 4 } },
+      { name: "무한 연타",      desc: "DPS +4% · 클릭 피해 +3%",          pos: [6,3], req: [6,7],  cost: 2, fx: { dps: 4, clk: 3 } },
+      { name: "극한 타격",      desc: "클릭 피해 +4%",                    pos: [8,3], req: [7],    cost: 2, fx: { clk: 4 } },
+      // 13-16: row 4
+      { name: "사냥꾼의 집중",  desc: "공격력 +5% · 재료 확률 +4%",       pos: [1,4], req: [8,9],  cost: 2, fx: { atk: 5, mat: 4 } },
+      { name: "전장 지배",      desc: "공격력 +4% · DPS +5%",             pos: [3,4], req: [9,10], cost: 2, fx: { atk: 4, dps: 5 } },
+      { name: "역동적 연격",    desc: "DPS +5% · 클릭 피해 +5%",          pos: [5,4], req: [10,11],cost: 2, fx: { dps: 5, clk: 5 } },
+      { name: "치명적 일격",    desc: "클릭 피해 +5% · 재료 확률 +4%",    pos: [7,4], req: [11,12],cost: 2, fx: { clk: 5, mat: 4 } },
+      // 17-19: row 5 (milestone: 18)
+      { name: "초월의 사냥",    desc: "공격력 +6% · 경험치 +5%",          pos: [2,5], req: [13,14],cost: 3, fx: { atk: 6, exp: 5 } },
+      { name: "★ 전설 사냥꾼", desc: "공격력 +5% · DPS +6%",             pos: [4,5], req: [14,15],cost: 3, fx: { atk: 5, dps: 6 } },
+      { name: "신성한 연격",    desc: "DPS +6% · 클릭 피해 +6%",          pos: [6,5], req: [15,16],cost: 3, fx: { dps: 6, clk: 6 } },
+      // 20-21: row 6
+      { name: "신화의 발톱",    desc: "공격력 +7% · DPS +5%",             pos: [3,6], req: [17,18],cost: 3, fx: { atk: 7, dps: 5 } },
+      { name: "영원한 추격",    desc: "DPS +7% · 클릭 피해 +7%",          pos: [5,6], req: [18,19],cost: 3, fx: { dps: 7, clk: 7 } },
+      // 22: capstone
+      { name: "★★ 초월 사냥꾼", desc: "공격력 +10% · DPS +10% · 클릭 피해 +8%", pos: [4,7], req: [20,21], cost: 5, fx: { atk: 10, dps: 10, clk: 8 } },
     ],
   },
   merchant: {
     label: "상인", icon: CircleDollarSign, tone: "gold",
     nodes: [
-      /* T1 행상인 (0-9, 1pt) */
-      { name: "흥정 시작",       desc: "골드 +1%" },
-      { name: "시장 파악",       desc: "판매 이익 +0.5%" },
-      { name: "절약 습관",       desc: "상점 할인 -1%" },
-      { name: "거래 감각",       desc: "골드 +1%" },
-      { name: "물가 이해",       desc: "판매 이익 +0.5%" },
-      { name: "단골 확보",       desc: "상점 할인 -1%" },
-      { name: "투자 기초",       desc: "골드 +1%" },
-      { name: "시세 파악",       desc: "판매 이익 +1%" },
-      { name: "재고 관리",       desc: "상점 할인 -1.5%" },
-      { name: "★ 행상인 완료",  desc: "골드 +2% · 판매 이익 +1%" },
-      /* T2 견습 (10-19, 1pt) */
-      { name: "거래 기술",       desc: "골드 +1.5%" },
-      { name: "가치 감별",       desc: "판매 이익 +1%" },
-      { name: "대량 구매",       desc: "상점 할인 -1.5%" },
-      { name: "상권 이해",       desc: "골드 +1.5%" },
-      { name: "이익 극대화",     desc: "판매 이익 +1%" },
-      { name: "협상 기술",       desc: "상점 할인 -2%" },
-      { name: "자본 관리",       desc: "골드 +1.5%" },
-      { name: "품질 판단",       desc: "판매 이익 +1.5%" },
-      { name: "공급망 구축",     desc: "상점 할인 -2%" },
-      { name: "★ 견습 완료",    desc: "골드 +2% · 상점 할인 -2%" },
-      /* T3 숙련 (20-29, 1pt) */
-      { name: "거래 흐름 파악",  desc: "골드 +2%" },
-      { name: "수익 구조",       desc: "판매 이익 +1.5%" },
-      { name: "도매 접근",       desc: "상점 할인 -2.5%" },
-      { name: "시장 지배",       desc: "골드 +2%" },
-      { name: "이익 배분",       desc: "판매 이익 +1.5%" },
-      { name: "가격 조율",       desc: "상점 할인 -2.5%" },
-      { name: "자본 확장",       desc: "골드 +2%" },
-      { name: "평가 능력",       desc: "판매 이익 +2%" },
-      { name: "독점 공급",       desc: "상점 할인 -3%" },
-      { name: "★ 숙련 완료",    desc: "골드 +3% · 판매 이익 +2%" },
-      /* T4 장인 (30-39, 1pt) */
-      { name: "시장 장악",       desc: "골드 +2.5%" },
-      { name: "가치 창출",       desc: "판매 이익 +2%" },
-      { name: "특별 계약",       desc: "상점 할인 -3%" },
-      { name: "금융 이해",       desc: "골드 +2.5%" },
-      { name: "수익 증대",       desc: "판매 이익 +2%" },
-      { name: "선도적 거래",     desc: "상점 할인 -3.5%" },
-      { name: "자산 운용",       desc: "골드 +3%" },
-      { name: "브랜드 가치",     desc: "판매 이익 +2.5%" },
-      { name: "배타적 거래",     desc: "상점 할인 -3.5%" },
-      { name: "★ 장인 완료",    desc: "골드 +4% · 판매 이익 +3%" },
-      /* T5 명장 (40-49, 1pt) */
-      { name: "시장 독점",       desc: "골드 +3%" },
-      { name: "부의 창조",       desc: "판매 이익 +3%" },
-      { name: "황금 계약",       desc: "상점 할인 -4%" },
-      { name: "경제 장악",       desc: "골드 +3.5%" },
-      { name: "이익 폭발",       desc: "판매 이익 +3%" },
-      { name: "프리미엄 거래",   desc: "상점 할인 -4%" },
-      { name: "복리 운용",       desc: "골드 +3.5%" },
-      { name: "전략적 판매",     desc: "판매 이익 +3.5%" },
-      { name: "최대 절약",       desc: "상점 할인 -4.5%" },
-      { name: "★ 명장 완료",    desc: "골드 +5% · 상점 할인 -5%" },
-      /* T6 무역상 (50-59, 2pt) */
-      { name: "국제 무역",       desc: "골드 +4%" },
-      { name: "희귀 가치",       desc: "판매 이익 +4%" },
-      { name: "무역 특권",       desc: "상점 할인 -5%" },
-      { name: "경제 지배",       desc: "골드 +4%" },
-      { name: "수익 극한",       desc: "판매 이익 +4%" },
-      { name: "독점 공급망",     desc: "상점 할인 -5%" },
-      { name: "대규모 투자",     desc: "골드 +4.5%" },
-      { name: "명품 거래",       desc: "판매 이익 +4.5%" },
-      { name: "황금 경로",       desc: "상점 할인 -5.5%" },
-      { name: "★ 무역상 달성",  desc: "골드 +6% · 판매 이익 +5%" },
-      /* T7 부호 (60-69, 2pt) */
-      { name: "황금의 손",       desc: "골드 +5%" },
-      { name: "부의 증폭",       desc: "판매 이익 +5%" },
-      { name: "전략적 절약",     desc: "상점 할인 -6%" },
-      { name: "자본의 신",       desc: "골드 +5%" },
-      { name: "신화적 가치",     desc: "판매 이익 +5%" },
-      { name: "특별 파트너십",   desc: "상점 할인 -6%" },
-      { name: "금융 마스터",     desc: "골드 +5.5%" },
-      { name: "전설의 거래",     desc: "판매 이익 +5.5%" },
-      { name: "극한 절약",       desc: "상점 할인 -6.5%" },
-      { name: "★ 부호 달성",    desc: "골드 +7% · 판매 이익 +6%" },
-      /* T8 황금 제국 (70-79, 2pt) */
-      { name: "황제의 재고",     desc: "골드 +6%" },
-      { name: "불멸의 가치",     desc: "판매 이익 +6%" },
-      { name: "황금 특권",       desc: "상점 할인 -7%" },
-      { name: "신화의 부",       desc: "골드 +6%" },
-      { name: "영원한 이익",     desc: "판매 이익 +6.5%" },
-      { name: "전설적 계약",     desc: "상점 할인 -7%" },
-      { name: "우주적 자본",     desc: "골드 +6.5%" },
-      { name: "신성한 거래",     desc: "판매 이익 +7%" },
-      { name: "무한 절약",       desc: "상점 할인 -7.5%" },
-      { name: "★ 황금 달성",    desc: "골드 +10% · 상점 할인 -10%" },
-      /* T9 전설의 상인 (80-89, 3pt) */
-      { name: "신화 자산",       desc: "골드 +7%" },
-      { name: "절대적 가치",     desc: "판매 이익 +8%" },
-      { name: "신성 계약",       desc: "상점 할인 -8%" },
-      { name: "우주 경제",       desc: "골드 +8%" },
-      { name: "신화적 거래",     desc: "판매 이익 +8%" },
-      { name: "전설 공급망",     desc: "상점 할인 -9%" },
-      { name: "절대 부의 장",    desc: "골드 +8%" },
-      { name: "시간 초월 가치",  desc: "판매 이익 +9%" },
-      { name: "극한 독점",       desc: "상점 할인 -9%" },
-      { name: "★ 전설 달성",    desc: "골드 +10% · 판매 이익 +10%" },
-      /* T10 황금의 신 (90-99, 3pt) */
-      { name: "초월 경제",       desc: "골드 +9%" },
-      { name: "신성한 가치",     desc: "판매 이익 +10%" },
-      { name: "신성 할인",       desc: "상점 할인 -10%" },
-      { name: "우주 자산",       desc: "골드 +10%" },
-      { name: "황금의 의지",     desc: "판매 이익 +11%" },
-      { name: "신화 절약",       desc: "상점 할인 -11%" },
-      { name: "절대 부의 경지",  desc: "골드 +11%" },
-      { name: "초월 가치",       desc: "판매 이익 +12%" },
-      { name: "황금의 신",       desc: "골드 +12% · 판매 이익 +12%" },
-      { name: "★ 황금신 달성",  desc: "골드 +15% · 판매 이익 +15% · 상점 할인 -15%" },
+      //  0: root
+      { name: "상인의 시작",    desc: "부의 길을 시작합니다",             pos: [4,0], req: [],     cost: 0, fx: {} },
+      //  1-3: row 1
+      { name: "흥정 기술",      desc: "골드 획득 +2%",                    pos: [2,1], req: [0],    cost: 1, fx: { gld: 2 } },
+      { name: "가치 감별",      desc: "판매 보너스 +1%",                  pos: [4,1], req: [0],    cost: 1, fx: { sle: 1 } },
+      { name: "절약 습관",      desc: "상점 할인 -1%",                    pos: [6,1], req: [0],    cost: 1, fx: { dis: 1 } },
+      //  4-7: row 2
+      { name: "황금 눈",        desc: "골드 획득 +3%",                    pos: [1,2], req: [1],    cost: 1, fx: { gld: 3 } },
+      { name: "거래 전문가",    desc: "골드 +2% · 판매 +2%",              pos: [3,2], req: [1,2],  cost: 1, fx: { gld: 2, sle: 2 } },
+      { name: "현명한 거래",    desc: "판매 +2% · 상점 할인 -2%",         pos: [5,2], req: [2,3],  cost: 1, fx: { sle: 2, dis: 2 } },
+      { name: "특별 계약",      desc: "상점 할인 -2%",                    pos: [7,2], req: [3],    cost: 1, fx: { dis: 2 } },
+      //  8-12: row 3 (milestone: 10)
+      { name: "부의 흐름",      desc: "골드 획득 +4%",                    pos: [0,3], req: [4],    cost: 2, fx: { gld: 4 } },
+      { name: "자본 운용",      desc: "골드 +3% · 판매 +3%",              pos: [2,3], req: [4,5],  cost: 2, fx: { gld: 3, sle: 3 } },
+      { name: "★ 상권 지배",   desc: "골드 +4% · 판매 +4%",              pos: [4,3], req: [5,6],  cost: 2, fx: { gld: 4, sle: 4 } },
+      { name: "독점 협상",      desc: "판매 +4% · 상점 할인 -3%",         pos: [6,3], req: [6,7],  cost: 2, fx: { sle: 4, dis: 3 } },
+      { name: "황금 계약",      desc: "상점 할인 -4%",                    pos: [8,3], req: [7],    cost: 2, fx: { dis: 4 } },
+      // 13-16: row 4
+      { name: "대상인의 눈",    desc: "골드 +5% · 판매 +3%",              pos: [1,4], req: [8,9],  cost: 2, fx: { gld: 5, sle: 3 } },
+      { name: "이익 극대화",    desc: "골드 +4% · 판매 +4%",              pos: [3,4], req: [9,10], cost: 2, fx: { gld: 4, sle: 4 } },
+      { name: "전략적 판매",    desc: "판매 +5% · 상점 할인 -4%",         pos: [5,4], req: [10,11],cost: 2, fx: { sle: 5, dis: 4 } },
+      { name: "무역 특권",      desc: "상점 할인 -5%",                    pos: [7,4], req: [11,12],cost: 2, fx: { dis: 5 } },
+      // 17-19: row 5 (milestone: 18)
+      { name: "황금 제국",      desc: "골드 +6% · 판매 +4%",              pos: [2,5], req: [13,14],cost: 3, fx: { gld: 6, sle: 4 } },
+      { name: "★ 부의 신",     desc: "골드 +5% · 판매 +5%",              pos: [4,5], req: [14,15],cost: 3, fx: { gld: 5, sle: 5 } },
+      { name: "전설적 거래",    desc: "판매 +6% · 상점 할인 -5%",         pos: [6,5], req: [15,16],cost: 3, fx: { sle: 6, dis: 5 } },
+      // 20-21: row 6
+      { name: "황금의 손",      desc: "골드 +7% · 판매 +5%",              pos: [3,6], req: [17,18],cost: 3, fx: { gld: 7, sle: 5 } },
+      { name: "무한 이익",      desc: "판매 +7% · 상점 할인 -6%",         pos: [5,6], req: [18,19],cost: 3, fx: { sle: 7, dis: 6 } },
+      // 22: capstone
+      { name: "★★ 황금의 신", desc: "골드 +10% · 판매 +8% · 상점 할인 -6%", pos: [4,7], req: [20,21], cost: 5, fx: { gld: 10, sle: 8, dis: 6 } },
     ],
   },
 };
@@ -1042,6 +788,7 @@ const initialState = (): GameState => ({
     hunter: 0,
     merchant: 0,
   },
+  unlockedTraits: { smith: [], hunter: [], merchant: [] },
   prestige: 0,
   prestigeStones: 0,
   totalPrestigeStones: 0,
@@ -1110,30 +857,35 @@ function getCumulativeEnhanceCost(enhance: number) {
   return total;
 }
 
-function getSwordSaleValue(enhance: number, merchant: number) {
+function getSwordSaleValue(enhance: number, merchantSle: number) {
+  // merchantSle: total sale bonus %-points from merchant trait nodes
   const cumulativeInvestment = getCumulativeEnhanceCost(enhance);
+  const bonus = merchantSle / 100;
   const legacyValue = Math.floor(
-    (120 + Math.pow(1.36, enhance) * 55) * (1 + merchant * 0.009),
+    (120 + Math.pow(1.36, enhance) * 55) * (1 + bonus),
   );
   const guaranteedProfitValue = Math.floor(
     cumulativeInvestment * (1.18 + Math.min(enhance, 50) * 0.006) + 90 * enhance + 120,
   );
-  return Math.floor(Math.max(legacyValue, guaranteedProfitValue) * (1 + merchant * 0.006));
+  return Math.floor(Math.max(legacyValue, guaranteedProfitValue) * (1 + bonus * 0.5));
 }
 
 function derive(state: GameState): Derived {
   const currentRegion = getRegion(state.regionId);
   const art = getArtifactBonuses(state.artifacts ?? []);
   const pu = (id: string) => state.prestigeUpgrades?.[id] ?? 0;
+  const smithFx    = sumTraitFx(state.unlockedTraits?.smith    ?? [], TRAIT_BRANCHES.smith.nodes);
+  const hunterFx   = sumTraitFx(state.unlockedTraits?.hunter   ?? [], TRAIT_BRANCHES.hunter.nodes);
+  const merchantFx = sumTraitFx(state.unlockedTraits?.merchant ?? [], TRAIT_BRANCHES.merchant.nodes);
   const prestigeMultiplier = 1 + state.totalPrestigeStones * 0.035 + state.prestige * 0.08;
   const permAttackMult = 1 + pu("perm_attack") * 0.10;
-  const attack = Math.floor(10 * Math.pow(1.24, state.enhance) * prestigeMultiplier * (1 + state.traits.hunter * 0.004) * art.attackMult * permAttackMult);
-  const dps = Math.floor(attack * (0.5 + state.level * 0.015) * (1 + state.traits.hunter * 0.005) * art.dpsMult);
-  const clickDamage = Math.max(1, Math.floor(attack * (0.4 + state.traits.hunter * 0.002) * art.clickMult));
+  const attack = Math.floor(10 * Math.pow(1.24, state.enhance) * prestigeMultiplier * (1 + (hunterFx.atk ?? 0) / 100) * art.attackMult * permAttackMult);
+  const dps = Math.floor(attack * (0.5 + state.level * 0.015) * (1 + (hunterFx.dps ?? 0) / 100) * art.dpsMult);
+  const clickDamage = Math.max(1, Math.floor(attack * (0.4 + (hunterFx.clk ?? 0) / 100) * art.clickMult));
   const cumulativeInvestment = getCumulativeEnhanceCost(state.enhance);
-  const saleValue = getSwordSaleValue(state.enhance, state.traits.merchant);
+  const saleValue = getSwordSaleValue(state.enhance, merchantFx.sle ?? 0);
   const saleProfit = saleValue - cumulativeInvestment;
-  const costReduction = clamp(state.traits.smith * 0.002, 0, 0.40) + clamp(-(art.costMult - 1), 0, 0.30);
+  const costReduction = clamp((smithFx.cst ?? 0) / 100, 0, 0.40) + clamp(-(art.costMult - 1), 0, 0.30);
   const upgradeCost = Math.floor(getBaseUpgradeCost(state.enhance) * (1 - costReduction));
   const baseRate =
     state.enhance < 10
@@ -1146,15 +898,19 @@ function derive(state: GameState): Derived {
             ? 20 - (state.enhance - 30) * 1.0
             : 9 - (state.enhance - 40) * 0.6;
   const successRate = clamp(
-    baseRate + state.traits.smith * 0.12 + state.prestigeStones * 0.05
+    baseRate + (smithFx.suc ?? 0) + state.prestigeStones * 0.05
     + art.successRateAdd + pu("safety_net") * 4,
     1.5, 97,
   );
   const rawDestroyRate = state.enhance < 10 ? 0 : state.enhance < 20 ? 35 : state.enhance < 30 ? 54 : state.enhance < 40 ? 72 : 86;
-  const destroyRate = Math.max(0, rawDestroyRate - state.traits.smith * 0.08 + art.destroyRateAdd);
+  const destroyRate = Math.max(0, rawDestroyRate - (smithFx.dst ?? 0) + art.destroyRateAdd);
   const expToNext = Math.floor(80 * Math.pow(1.21, state.level - 1));
   const traitPointsEarned = Math.floor(state.level * 2) + state.prestige * 20 + Math.floor(state.bossesKilled / 3);
-  const traitPointsSpent = state.traits.smith + state.traits.hunter + state.traits.merchant;
+  const traitPointsSpent = [
+    ...(state.unlockedTraits?.smith    ?? []).map(i => TRAIT_BRANCHES.smith.nodes[i]?.cost    ?? 0),
+    ...(state.unlockedTraits?.hunter   ?? []).map(i => TRAIT_BRANCHES.hunter.nodes[i]?.cost   ?? 0),
+    ...(state.unlockedTraits?.merchant ?? []).map(i => TRAIT_BRANCHES.merchant.nodes[i]?.cost ?? 0),
+  ].reduce((a, b) => a + b, 0);
   const traitPointsAvailable = traitPointsEarned - traitPointsSpent;
   const monsterMaxHp = getMonsterMaxHp(state, currentRegion);
   return {
@@ -1186,6 +942,11 @@ function normalizeLoadedState(raw: unknown): GameState | null {
     ...state,
     inventory: { ...base.inventory, ...(state.inventory ?? {}) },
     traits: { ...base.traits, ...(state.traits ?? {}) },
+    unlockedTraits: {
+      smith:    Array.isArray((state as any).unlockedTraits?.smith)    ? (state as any).unlockedTraits.smith    : [],
+      hunter:   Array.isArray((state as any).unlockedTraits?.hunter)   ? (state as any).unlockedTraits.hunter   : [],
+      merchant: Array.isArray((state as any).unlockedTraits?.merchant) ? (state as any).unlockedTraits.merchant : [],
+    },
     artifacts: Array.isArray(state.artifacts) ? state.artifacts : [],
     prestigeUpgrades: (state.prestigeUpgrades && typeof state.prestigeUpgrades === "object") ? state.prestigeUpgrades : {},
     regionId: REGIONS.some((region) => region.id === state.regionId) ? (state.regionId as RegionId) : base.regionId,
@@ -1196,9 +957,11 @@ function calculateKillRewards(state: GameState, derived = derive(state)) {
   const region = derived.currentRegion;
   const boss = derived.isBoss;
   const art = getArtifactBonuses(state.artifacts ?? []);
-  const gold = Math.floor(region.gold * (1 + state.regionStep * 0.035) * (boss ? 7 : 1) * (1 + state.traits.merchant * 0.003) * art.goldMult);
-  const exp = Math.floor(region.exp * (1 + state.regionStep * 0.025) * (boss ? 5 : 1) * (1 + state.traits.hunter * 0.003) * art.expMult);
-  const materialRollChance = clamp(region.materialChance + state.traits.hunter * 0.001 + (boss ? 0.35 : 0) + art.materialChanceAdd + (state.prestigeUpgrades?.["mat_hunter"] ?? 0) * 0.06, 0, 0.95);
+  const merchantFx = sumTraitFx(state.unlockedTraits?.merchant ?? [], TRAIT_BRANCHES.merchant.nodes);
+  const hunterFx   = sumTraitFx(state.unlockedTraits?.hunter   ?? [], TRAIT_BRANCHES.hunter.nodes);
+  const gold = Math.floor(region.gold * (1 + state.regionStep * 0.035) * (boss ? 7 : 1) * (1 + (merchantFx.gld ?? 0) / 100) * art.goldMult);
+  const exp = Math.floor(region.exp * (1 + state.regionStep * 0.025) * (boss ? 5 : 1) * (1 + (hunterFx.exp ?? 0) / 100) * art.expMult);
+  const materialRollChance = clamp(region.materialChance + (hunterFx.mat ?? 0) / 100 + (boss ? 0.35 : 0) + art.materialChanceAdd + (state.prestigeUpgrades?.["mat_hunter"] ?? 0) * 0.06, 0, 0.95);
   const materialAmount = boss ? 2 + Math.floor(state.regionStep / 25) : 1;
   return { gold, exp, materialKey: region.material as MaterialKey, materialAmount, materialRollChance, boss };
 }
@@ -1279,7 +1042,8 @@ export default function Home() {
       if (!parsed) return;
       const now = Date.now();
       const elapsedSeconds = Math.floor((now - (parsed.lastSavedAt || now)) / 1000);
-      const capSeconds = Math.floor(OFFLINE_CAP_HOURS * 3600 * (1 + parsed.traits.merchant * 0.002));
+      const _offMerchFx = sumTraitFx(parsed.unlockedTraits?.merchant ?? [], TRAIT_BRANCHES.merchant.nodes);
+      const capSeconds = Math.floor(OFFLINE_CAP_HOURS * 3600 * (1 + (_offMerchFx.gld ?? 0) / 100 * 0.5));
       const appliedSeconds = clamp(elapsedSeconds, 0, capSeconds);
       if (appliedSeconds > 10) {
         const d = derive(parsed);
@@ -1516,7 +1280,8 @@ export default function Home() {
 
   function buyItem(item: "guard" | "stabilizer" | "warp") {
     mutate((draft) => {
-      const discount = 1 - clamp(draft.traits.merchant * 0.01, 0, 0.25);
+      const mFx = sumTraitFx(draft.unlockedTraits?.merchant ?? [], TRAIT_BRANCHES.merchant.nodes);
+      const discount = 1 - clamp((mFx.dis ?? 0) / 100, 0, 0.25);
       const price = item === "guard" ? Math.floor(2200 * discount) : item === "stabilizer" ? Math.floor(1400 * discount) : Math.floor(4800 * discount);
       if (draft.gold < price) return "상점 구매에 필요한 골드가 부족합니다.";
       draft.gold -= price;
@@ -1553,16 +1318,17 @@ export default function Home() {
 
   function activateTraitNode(branch: TraitBranch, nodeIndex: number) {
     const info = TRAIT_BRANCHES[branch];
+    const node = info.nodes[nodeIndex];
     mutate((draft) => {
+      if (!draft.unlockedTraits) draft.unlockedTraits = { smith: [], hunter: [], merchant: [] };
+      const unlocked = draft.unlockedTraits[branch] ?? [];
+      if (unlocked.includes(nodeIndex)) return "이미 활성화된 노드입니다.";
+      const prereqsMet = node.req.every(r => unlocked.includes(r));
+      if (!prereqsMet) return "이전 노드를 먼저 활성화하세요.";
       const d = derive(draft);
-      const prevThreshold = nodeIndex === 0 ? 0 : TRAIT_NODE_THRESHOLDS[nodeIndex - 1];
-      const nextThreshold = TRAIT_NODE_THRESHOLDS[nodeIndex];
-      if (draft.traits[branch] >= nextThreshold) return "이미 활성화된 노드입니다.";
-      if (draft.traits[branch] < prevThreshold) return "이전 노드를 먼저 활성화하세요.";
-      const cost = nextThreshold - draft.traits[branch];
-      if (d.traitPointsAvailable < cost) return `특성 포인트 부족. 필요: ${cost}pt`;
-      draft.traits[branch] = nextThreshold;
-      return `[${info.label}] ${info.nodes[nodeIndex].name} 활성화!`;
+      if (d.traitPointsAvailable < node.cost) return `특성 포인트 부족. 필요: ${node.cost}pt`;
+      draft.unlockedTraits[branch] = [...unlocked, nodeIndex];
+      return `[${info.label}] ${node.name} 활성화!`;
     }, info.tone);
   }
 
@@ -1607,6 +1373,7 @@ export default function Home() {
       if (!canPrestige) return "명성 조건 미달: +32 검, Lv.35, 보스 5회 처치가 필요합니다.";
       const gained = Math.max(1, Math.floor((draft.bestEnhance - 25) / 4) + Math.floor(draft.level / 25));
       const keepTraits      = draft.traits;
+      const keepUnlockedTraits = draft.unlockedTraits;
       const keepArtifacts   = draft.artifacts;
       const keepUpgrades    = draft.prestigeUpgrades;
       const keepCreatedAt   = draft.createdAt;
@@ -1627,6 +1394,7 @@ export default function Home() {
         prestigeStones: keepStones,
         totalPrestigeStones: keepTotalStones,
         traits: keepTraits,
+        unlockedTraits: keepUnlockedTraits,
         artifacts: keepArtifacts,
         prestigeUpgrades: keepUpgrades,
         createdAt: keepCreatedAt,
@@ -1868,17 +1636,19 @@ export default function Home() {
             const currentBranch = branches[traitBranchIdx];
             const bInfo = TRAIT_BRANCHES[currentBranch];
             const BIcon = bInfo.icon;
-            const bVal = state.traits[currentBranch];
-            // Spiral grid: 10×10, CELL px per cell, strict orthogonal connections
-            const NODE_SIZE = 50;
-            const CELL = 68;
-            const PAD = 18;
-            const GRID = 10;
-            const TREE_W = PAD * 2 + (GRID - 1) * CELL + NODE_SIZE;
-            const TREE_H = PAD * 2 + (GRID - 1) * CELL + NODE_SIZE;
+            // Diamond graph: 9 cols × 8 rows
+            const NODE_SIZE = 52;
+            const CELL = 72;
+            const PAD = 20;
+            const GRID_COLS = 9;
+            const GRID_ROWS = 8;
+            const TREE_W = PAD * 2 + (GRID_COLS - 1) * CELL + NODE_SIZE;
+            const TREE_H = PAD * 2 + (GRID_ROWS - 1) * CELL + NODE_SIZE;
+
+            const unlocked = state.unlockedTraits?.[currentBranch] ?? [];
 
             const getPos = (idx: number) => {
-              const [col, row] = SPIRAL_POS[idx];
+              const [col, row] = bInfo.nodes[idx].pos;
               return { x: PAD + col * CELL, y: PAD + row * CELL };
             };
 
@@ -1902,7 +1672,6 @@ export default function Home() {
             const handlePanEnd = () => {
               if (!traitDragRef.current) return;
               traitDragRef.current.active = false;
-              // Delay clear so onNodeClick can still read the dragged flag
               const captured = traitDragRef.current;
               setTimeout(() => { if (traitDragRef.current === captured) traitDragRef.current = null; }, 0);
             };
@@ -1917,13 +1686,11 @@ export default function Home() {
             const floatBranch = selectedTraitNode?.branch;
             const floatIdx    = selectedTraitNode?.idx ?? -1;
             const floatNode   = floatBranch != null ? TRAIT_BRANCHES[floatBranch].nodes[floatIdx] : null;
-            const floatThresh = floatIdx >= 0 ? TRAIT_NODE_THRESHOLDS[floatIdx] : 0;
-            const floatPrev   = floatIdx > 0 ? TRAIT_NODE_THRESHOLDS[floatIdx - 1] : 0;
-            const floatVal    = floatBranch != null ? state.traits[floatBranch] : 0;
-            const floatActive = floatVal >= floatThresh;
-            const floatNext   = !floatActive && floatVal >= floatPrev;
+            const floatUnlocked = floatBranch != null ? (state.unlockedTraits?.[floatBranch] ?? []) : [];
+            const floatActive = floatUnlocked.includes(floatIdx);
+            const floatNext   = !floatActive && floatNode != null && floatNode.req.every(r => floatUnlocked.includes(r));
             const floatHidden = !floatActive && !floatNext;
-            const floatCost   = floatThresh - floatVal;
+            const floatCost   = floatNode?.cost ?? 0;
             const floatAfford = derived.traitPointsAvailable >= floatCost;
 
             return (
@@ -1934,7 +1701,7 @@ export default function Home() {
                   <div className="skt-nav-center">
                     <BIcon size={16} />
                     <span className="skt-branch-name">{bInfo.label}</span>
-                    <span className="skt-pts-badge">{bVal} / {TRAIT_NODE_THRESHOLDS[TRAIT_NODE_THRESHOLDS.length - 1]}</span>
+                    <span className="skt-pts-badge">{unlocked.length} / {bInfo.nodes.length}</span>
                   </div>
                   <button className="skt-nav-btn" onClick={() => goToBranch(traitBranchIdx + 1)} disabled={traitBranchIdx === branches.length - 1} aria-label="다음 특성">›</button>
                 </div>
@@ -1968,49 +1735,45 @@ export default function Home() {
                       transform: `translate(${traitPan.x}px, ${traitPan.y}px)`,
                     }}
                   >
-                    {/* Lines layer — all 99 connections; style reflects state */}
+                    {/* Connection lines — drawn per req[] edge */}
                     <svg className="skt-tree-svg" width={TREE_W} height={TREE_H} viewBox={`0 0 ${TREE_W} ${TREE_H}`}>
-                      {bInfo.nodes.map((_, i) => {
-                        if (i === 0) return null;
-                        const a = getPos(i - 1);
-                        const b = getPos(i);
-                        const half = NODE_SIZE / 2;
-                        const prevActive = bVal >= TRAIT_NODE_THRESHOLDS[i - 1];
-                        const currActive = bVal >= TRAIT_NODE_THRESHOLDS[i];
-                        const currPrevTh = i === 1 ? 0 : TRAIT_NODE_THRESHOLDS[i - 2];
-                        const prevIsNext = !prevActive && bVal >= currPrevTh;
-                        const currIsNext = !currActive && prevActive;
-                        const isGold = prevActive && currActive;
-                        const isRed  = (prevActive && currIsNext) || (prevIsNext && currActive);
-                        return (
-                          <line
-                            key={i}
-                            x1={a.x + half} y1={a.y + half}
-                            x2={b.x + half} y2={b.y + half}
-                            stroke={isGold ? "#9a7210" : isRed ? "#8a1a08" : "#1e1608"}
-                            strokeWidth={isGold || isRed ? 3 : 2}
-                            strokeLinecap="square"
-                            opacity={isGold || isRed ? 1 : 0.35}
-                            style={isGold ? { filter: "drop-shadow(0 0 3px rgba(200,144,10,0.6))" }
-                                 : isRed  ? { filter: "drop-shadow(0 0 3px rgba(192,32,16,0.6))" }
-                                 : undefined}
-                          />
-                        );
-                      })}
+                      {bInfo.nodes.map((node, i) =>
+                        node.req.map(r => {
+                          const a = getPos(r);
+                          const b = getPos(i);
+                          const half = NODE_SIZE / 2;
+                          const rActive = unlocked.includes(r);
+                          const iActive = unlocked.includes(i);
+                          const iNext = !iActive && node.req.every(rr => unlocked.includes(rr));
+                          const isGold = rActive && iActive;
+                          const isRed  = rActive && iNext;
+                          return (
+                            <line
+                              key={`${r}-${i}`}
+                              x1={a.x + half} y1={a.y + half}
+                              x2={b.x + half} y2={b.y + half}
+                              stroke={isGold ? "#9a7210" : isRed ? "#8a1a08" : "#1e1608"}
+                              strokeWidth={isGold || isRed ? 3 : 2}
+                              strokeLinecap="square"
+                              opacity={isGold || isRed ? 1 : 0.3}
+                              style={isGold ? { filter: "drop-shadow(0 0 3px rgba(200,144,10,0.6))" }
+                                   : isRed  ? { filter: "drop-shadow(0 0 3px rgba(192,32,16,0.6))" }
+                                   : undefined}
+                            />
+                          );
+                        })
+                      )}
                     </svg>
 
-                    {/* All 100 node positions rendered: active=gold, next=red, locked=ghost */}
+                    {/* All 23 nodes: active=gold, next=red, locked=ghost */}
                     {bInfo.nodes.map((node, idx) => {
                       const pos = getPos(idx);
-                      const threshold = TRAIT_NODE_THRESHOLDS[idx];
-                      const prevTh = idx === 0 ? 0 : TRAIT_NODE_THRESHOLDS[idx - 1];
-                      const isActive = bVal >= threshold;
-                      const isNext   = !isActive && bVal >= prevTh;
+                      const isActive = unlocked.includes(idx);
+                      const isNext   = !isActive && node.req.every(r => unlocked.includes(r));
                       const isLocked = !isActive && !isNext;
                       const isSel = selectedTraitNode?.branch === currentBranch && selectedTraitNode.idx === idx;
-                      const isMilestone = (idx + 1) % 10 === 0;
-                      const nodeTier = Math.floor(idx / 10);
-                      const tierPath = TIER_SVG_PATHS[currentBranch][nodeTier];
+                      const isMilestone = idx === 10 || idx === 18 || idx === 22;
+                      const iconPath = getNodeIcon(node, isMilestone);
 
                       return (
                         <button
@@ -2026,7 +1789,7 @@ export default function Home() {
                         >
                           {!isLocked && (
                             <svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                              <path d={tierPath} />
+                              <path d={iconPath} />
                             </svg>
                           )}
                         </button>
