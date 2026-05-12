@@ -508,6 +508,21 @@ const TRAIT_NODE_THRESHOLDS: number[] = (() => {
 
 type TraitNodeDef = { name: string; desc: string };
 
+// Clockwise spiral positions for 100 nodes on a 10×10 grid.
+// Consecutive nodes are always orthogonally adjacent (horizontal OR vertical only),
+// giving the 4-direction connection look of KoM.
+const SPIRAL_POS: [number, number][] = (() => {
+  const pos: [number, number][] = [];
+  let t = 0, b = 9, l = 0, r = 9;
+  while (pos.length < 100) {
+    for (let c = l; c <= r && pos.length < 100; c++) pos.push([c, t]); t++;
+    for (let rw = t; rw <= b && pos.length < 100; rw++) pos.push([r, rw]); r--;
+    for (let c = r; c >= l && pos.length < 100; c--) pos.push([c, b]); b--;
+    for (let rw = b; rw >= t && pos.length < 100; rw--) pos.push([l, rw]); l++;
+  }
+  return pos;
+})();
+
 // Tier icon SVG paths (one per tier per branch, viewBox 0 0 20 20)
 const TIER_SVG_PATHS: Record<TraitBranch, string[]> = {
   smith: [
@@ -1854,33 +1869,17 @@ export default function Home() {
             const bInfo = TRAIT_BRANCHES[currentBranch];
             const BIcon = bInfo.icon;
             const bVal = state.traits[currentBranch];
-            const NODE_SIZE = 52;
-            const CELL = 70;
-            const ROW_H = 82;
-            const PAD = 32;
-            const COLS = 10;
-            const ROWS = 10;
-            const TREE_W = PAD * 2 + (COLS - 1) * CELL + NODE_SIZE;
-            const TREE_H = PAD * 2 + (ROWS - 1) * ROW_H + NODE_SIZE + 34;
-
-            // S-wave arch: even tiers arc UP, odd tiers arc DOWN — creates flowing path
-            const Y_EVEN = [0, -6, -10, -13, -15, -15, -13, -10, -6, 0];
-            const Y_ODD  = [0,  6,  10,  13,  15,  15,  13,  10,  6, 0];
+            // Spiral grid: 10×10, CELL px per cell, strict orthogonal connections
+            const NODE_SIZE = 50;
+            const CELL = 68;
+            const PAD = 18;
+            const GRID = 10;
+            const TREE_W = PAD * 2 + (GRID - 1) * CELL + NODE_SIZE;
+            const TREE_H = PAD * 2 + (GRID - 1) * CELL + NODE_SIZE;
 
             const getPos = (idx: number) => {
-              const tier = Math.floor(idx / 10);
-              const inTier = idx % 10;
-              const col = tier % 2 === 0 ? inTier : 9 - inTier;
-              const yJitter = tier % 2 === 0 ? Y_EVEN[inTier] : Y_ODD[inTier];
-              return { x: PAD + col * CELL, y: PAD + tier * ROW_H + yJitter };
-            };
-
-            // KoM visibility: only active nodes + the single next-unlockable node are shown
-            const isNodeVisible = (idx: number) => {
-              if (idx < 0 || idx >= bInfo.nodes.length) return false;
-              const th = TRAIT_NODE_THRESHOLDS[idx];
-              const prevTh = idx === 0 ? 0 : TRAIT_NODE_THRESHOLDS[idx - 1];
-              return bVal >= th || bVal >= prevTh;
+              const [col, row] = SPIRAL_POS[idx];
+              return { x: PAD + col * CELL, y: PAD + row * CELL };
             };
 
             const goToBranch = (i: number) => {
@@ -1969,39 +1968,45 @@ export default function Home() {
                       transform: `translate(${traitPan.x}px, ${traitPan.y}px)`,
                     }}
                   >
-                    {/* Lines layer — only between visible node pairs */}
+                    {/* Lines layer — all 99 connections; style reflects state */}
                     <svg className="skt-tree-svg" width={TREE_W} height={TREE_H} viewBox={`0 0 ${TREE_W} ${TREE_H}`}>
                       {bInfo.nodes.map((_, i) => {
                         if (i === 0) return null;
-                        if (!isNodeVisible(i - 1) || !isNodeVisible(i)) return null;
                         const a = getPos(i - 1);
                         const b = getPos(i);
-                        const bothActive = bVal >= TRAIT_NODE_THRESHOLDS[i];
                         const half = NODE_SIZE / 2;
-                        const lineColor = bothActive ? "#9a7210" : "#8a1a08";
-                        const glowColor = bothActive ? "rgba(200,144,10,0.55)" : "rgba(192,32,16,0.55)";
+                        const prevActive = bVal >= TRAIT_NODE_THRESHOLDS[i - 1];
+                        const currActive = bVal >= TRAIT_NODE_THRESHOLDS[i];
+                        const currPrevTh = i === 1 ? 0 : TRAIT_NODE_THRESHOLDS[i - 2];
+                        const prevIsNext = !prevActive && bVal >= currPrevTh;
+                        const currIsNext = !currActive && prevActive;
+                        const isGold = prevActive && currActive;
+                        const isRed  = (prevActive && currIsNext) || (prevIsNext && currActive);
                         return (
                           <line
                             key={i}
                             x1={a.x + half} y1={a.y + half}
                             x2={b.x + half} y2={b.y + half}
-                            stroke={lineColor}
-                            strokeWidth={3}
+                            stroke={isGold ? "#9a7210" : isRed ? "#8a1a08" : "#1e1608"}
+                            strokeWidth={isGold || isRed ? 3 : 2}
                             strokeLinecap="square"
-                            style={{ filter: `drop-shadow(0 0 3px ${glowColor})` }}
+                            opacity={isGold || isRed ? 1 : 0.35}
+                            style={isGold ? { filter: "drop-shadow(0 0 3px rgba(200,144,10,0.6))" }
+                                 : isRed  ? { filter: "drop-shadow(0 0 3px rgba(192,32,16,0.6))" }
+                                 : undefined}
                           />
                         );
                       })}
                     </svg>
 
-                    {/* Node squares — only active/next are rendered (KoM style) */}
+                    {/* All 100 node positions rendered: active=gold, next=red, locked=ghost */}
                     {bInfo.nodes.map((node, idx) => {
-                      if (!isNodeVisible(idx)) return null;
                       const pos = getPos(idx);
                       const threshold = TRAIT_NODE_THRESHOLDS[idx];
                       const prevTh = idx === 0 ? 0 : TRAIT_NODE_THRESHOLDS[idx - 1];
                       const isActive = bVal >= threshold;
-                      const isNext = !isActive && bVal >= prevTh;
+                      const isNext   = !isActive && bVal >= prevTh;
+                      const isLocked = !isActive && !isNext;
                       const isSel = selectedTraitNode?.branch === currentBranch && selectedTraitNode.idx === idx;
                       const isMilestone = (idx + 1) % 10 === 0;
                       const nodeTier = Math.floor(idx / 10);
@@ -2010,17 +2015,20 @@ export default function Home() {
                       return (
                         <button
                           key={idx}
-                          className={`skt-tree-sq skt-${isActive ? "active" : "next"}${isSel ? " selected" : ""}${isMilestone ? " milestone" : ""}`}
+                          className={`skt-tree-sq skt-${isActive ? "active" : isNext ? "next" : "locked"}${isSel ? " selected" : ""}${isMilestone ? " milestone" : ""}`}
                           style={{ left: pos.x, top: pos.y, width: NODE_SIZE, height: NODE_SIZE }}
-                          onClick={() => onNodeClick(idx)}
+                          onClick={isLocked ? undefined : () => onNodeClick(idx)}
                           onMouseDown={(e) => e.stopPropagation()}
                           onTouchStart={(e) => e.stopPropagation()}
                           aria-pressed={isSel}
-                          aria-label={isNext ? `${node.name} (활성화 가능)` : node.name}
+                          aria-label={isLocked ? "" : isNext ? `${node.name} (활성화 가능)` : node.name}
+                          tabIndex={isLocked ? -1 : 0}
                         >
-                          <svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                            <path d={tierPath} />
-                          </svg>
+                          {!isLocked && (
+                            <svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                              <path d={tierPath} />
+                            </svg>
+                          )}
                         </button>
                       );
                     })}
