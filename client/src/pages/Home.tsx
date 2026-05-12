@@ -498,7 +498,13 @@ const MATERIAL_LABELS: Record<MaterialKey, string> = {
 };
 
 // Node thresholds: cumulative trait points required to reach each node
-const TRAIT_NODE_THRESHOLDS = [1, 3, 7, 12, 19, 27] as const;
+// 100 nodes per branch: nodes 0-49 cost 1pt, 50-79 cost 2pt, 80-99 cost 3pt → max 170pt per branch
+const TRAIT_NODE_THRESHOLDS: number[] = (() => {
+  const out: number[] = [];
+  let c = 0;
+  for (let i = 0; i < 100; i++) { c += i < 50 ? 1 : i < 80 ? 2 : 3; out.push(c); }
+  return out;
+})();
 
 type TraitNodeDef = { name: string; desc: string };
 
@@ -508,34 +514,346 @@ const TRAIT_BRANCHES: Record<TraitBranch, {
   smith: {
     label: "대장장이", icon: Hammer, tone: "cyan",
     nodes: [
-      { name: "날카로운 날",    desc: "강화 비용 -5%" },
-      { name: "안정된 손목",    desc: "성공률 +3%" },
-      { name: "균열 감지",      desc: "파괴율 -10%" },
-      { name: "제련 마스터",    desc: "강화 비용 -10% · 성공률 +3%" },
-      { name: "완벽한 담금질",  desc: "성공률 +7%" },
-      { name: "전설의 검객",    desc: "강화 비용 -15% · 파괴율 -15%" },
+      /* T1 수습 (0-9, 1pt) */
+      { name: "메탈 감각",       desc: "강화 비용 -1%" },
+      { name: "집중의 눈",       desc: "성공률 +0.5%" },
+      { name: "기초 망치질",     desc: "강화 비용 -1%" },
+      { name: "숨결 조율",       desc: "성공률 +0.5%" },
+      { name: "풀무 제어",       desc: "강화 비용 -1%" },
+      { name: "열처리 감각",     desc: "성공률 +0.5%" },
+      { name: "슬래그 제거",     desc: "파괴율 -1%" },
+      { name: "불꽃 조절",       desc: "강화 비용 -1.5%" },
+      { name: "균열 탐지",       desc: "파괴율 -1%" },
+      { name: "★ 수습 완료",    desc: "강화 비용 -2% · 성공률 +1%" },
+      /* T2 견습 (10-19, 1pt) */
+      { name: "날선 눈매",       desc: "파괴율 -1.5%" },
+      { name: "경험 축적",       desc: "강화 비용 -1.5%" },
+      { name: "예비 타격",       desc: "성공률 +0.8%" },
+      { name: "합금 이해",       desc: "파괴율 -1.5%" },
+      { name: "화력 조율",       desc: "강화 비용 -1.5%" },
+      { name: "정밀 타격",       desc: "성공률 +0.8%" },
+      { name: "취약점 분석",     desc: "파괴율 -2%" },
+      { name: "효율 가열",       desc: "강화 비용 -2%" },
+      { name: "안전 제련",       desc: "성공률 +1%" },
+      { name: "★ 견습 완료",    desc: "강화 비용 -3% · 파괴율 -3%" },
+      /* T3 숙련 (20-29, 1pt) */
+      { name: "금속 공명",       desc: "성공률 +1%" },
+      { name: "압력 조율",       desc: "강화 비용 -2%" },
+      { name: "담금질 심화",     desc: "파괴율 -2%" },
+      { name: "결정 분석",       desc: "성공률 +1.2%" },
+      { name: "냉각 제어",       desc: "파괴율 -2%" },
+      { name: "정교한 타격",     desc: "강화 비용 -2%" },
+      { name: "재료 절약",       desc: "강화 비용 -2.5%" },
+      { name: "단열 처리",       desc: "파괴율 -2.5%" },
+      { name: "제련 가속",       desc: "성공률 +1.2%" },
+      { name: "★ 숙련 완료",    desc: "강화 비용 -4% · 성공률 +2%" },
+      /* T4 장인 (30-39, 1pt) */
+      { name: "분자 결합",       desc: "파괴율 -3%" },
+      { name: "극한 가열",       desc: "강화 비용 -3%" },
+      { name: "미세 보정",       desc: "성공률 +1.5%" },
+      { name: "합금 조율",       desc: "파괴율 -3%" },
+      { name: "진동 제어",       desc: "강화 비용 -3%" },
+      { name: "집중 단조",       desc: "성공률 +1.5%" },
+      { name: "이중 담금질",     desc: "파괴율 -3.5%" },
+      { name: "압축 제련",       desc: "강화 비용 -3.5%" },
+      { name: "잔류 분석",       desc: "성공률 +2%" },
+      { name: "★ 장인 완료",    desc: "파괴율 -5% · 성공률 +2%" },
+      /* T5 명장 (40-49, 1pt) */
+      { name: "완벽한 합금",     desc: "강화 비용 -4%" },
+      { name: "균형 단조",       desc: "성공률 +2%" },
+      { name: "결정 구조 제어",  desc: "파괴율 -4%" },
+      { name: "극한 정밀도",     desc: "강화 비용 -4%" },
+      { name: "기계적 직관",     desc: "성공률 +2.5%" },
+      { name: "전자기 조율",     desc: "파괴율 -4%" },
+      { name: "복합 담금질",     desc: "강화 비용 -4.5%" },
+      { name: "결함 제거",       desc: "파괴율 -4.5%" },
+      { name: "완벽한 집중",     desc: "성공률 +2.5%" },
+      { name: "★ 명장 완료",    desc: "강화 비용 -6% · 파괴율 -6%" },
+      /* T6 제련사 (50-59, 2pt) */
+      { name: "금속 이해",       desc: "성공률 +3%" },
+      { name: "열역학 마스터",   desc: "강화 비용 -5%" },
+      { name: "결정 배열",       desc: "파괴율 -5%" },
+      { name: "역방향 분석",     desc: "성공률 +3%" },
+      { name: "초정밀 작업",     desc: "강화 비용 -5%" },
+      { name: "원자 결합",       desc: "파괴율 -5%" },
+      { name: "고속 단조",       desc: "강화 비용 -5.5%" },
+      { name: "완벽한 시야",     desc: "성공률 +3.5%" },
+      { name: "불멸의 기법",     desc: "파괴율 -5.5%" },
+      { name: "★ 제련사 달성",  desc: "강화 비용 -7% · 성공률 +4%" },
+      /* T7 수석 제련사 (60-69, 2pt) */
+      { name: "절대 집중",       desc: "파괴율 -6%" },
+      { name: "신비 합금",       desc: "강화 비용 -6%" },
+      { name: "완전 담금질",     desc: "성공률 +4%" },
+      { name: "무한 정밀도",     desc: "파괴율 -6%" },
+      { name: "신화 단조",       desc: "강화 비용 -6.5%" },
+      { name: "완벽한 구조",     desc: "성공률 +4%" },
+      { name: "극한 담금질",     desc: "파괴율 -7%" },
+      { name: "전설적 기술",     desc: "강화 비용 -7%" },
+      { name: "완벽한 직관",     desc: "성공률 +4.5%" },
+      { name: "★ 수석 달성",    desc: "파괴율 -8% · 성공률 +5%" },
+      /* T8 불꽃의 장인 (70-79, 2pt) */
+      { name: "마스터 합금",     desc: "강화 비용 -7%" },
+      { name: "신의 손길",       desc: "성공률 +5%" },
+      { name: "불가능의 정복",   desc: "파괴율 -8%" },
+      { name: "완벽한 변환",     desc: "강화 비용 -7.5%" },
+      { name: "시간의 단련",     desc: "성공률 +5%" },
+      { name: "불멸의 구조",     desc: "파괴율 -9%" },
+      { name: "전설의 불꽃",     desc: "강화 비용 -8%" },
+      { name: "신화의 담금질",   desc: "성공률 +5.5%" },
+      { name: "초월의 합금",     desc: "파괴율 -9%" },
+      { name: "★ 불꽃 달성",    desc: "강화 비용 -10% · 파괴율 -10%" },
+      /* T9 전설의 대장장이 (80-89, 3pt) */
+      { name: "신화 단조술",     desc: "성공률 +6%" },
+      { name: "불멸의 열처리",   desc: "강화 비용 -9%" },
+      { name: "절대 구조",       desc: "파괴율 -10%" },
+      { name: "신화 결합",       desc: "성공률 +6%" },
+      { name: "천지 단조",       desc: "강화 비용 -10%" },
+      { name: "신성한 담금질",   desc: "파괴율 -11%" },
+      { name: "우주 결합",       desc: "성공률 +7%" },
+      { name: "영원의 기법",     desc: "강화 비용 -10%" },
+      { name: "절대 완성",       desc: "파괴율 -12%" },
+      { name: "★ 전설 달성",    desc: "강화 비용 -12% · 성공률 +8%" },
+      /* T10 신화의 대장장이 (90-99, 3pt) */
+      { name: "신화 완성도",     desc: "파괴율 -12%" },
+      { name: "초월적 정밀도",   desc: "성공률 +8%" },
+      { name: "영원한 강화",     desc: "강화 비용 -12%" },
+      { name: "신의 제련",       desc: "파괴율 -13%" },
+      { name: "우주적 직관",     desc: "성공률 +9%" },
+      { name: "절대 효율",       desc: "강화 비용 -13%" },
+      { name: "신성 담금질",     desc: "파괴율 -14%" },
+      { name: "전설의 완성",     desc: "성공률 +10%" },
+      { name: "신화의 칼날",     desc: "강화 비용 -14% · 파괴율 -14%" },
+      { name: "★ 신화 달성",    desc: "강화 비용 -15% · 성공률 +10% · 파괴율 -15%" },
     ],
   },
   hunter: {
     label: "사냥꾼", icon: Target, tone: "orange",
     nodes: [
-      { name: "날카로운 시야",  desc: "공격력 +5%" },
-      { name: "빠른 발걸음",    desc: "DPS +8%" },
-      { name: "약점 포착",      desc: "클릭 피해 +15%" },
-      { name: "사냥 본능",      desc: "재료 확률 +8% · 경험치 +10%" },
-      { name: "전투 광기",      desc: "공격력 +15% · DPS +10%" },
-      { name: "왕의 사냥꾼",    desc: "공격력 +25% · 클릭 피해 +25%" },
+      /* T1 입문 (0-9, 1pt) */
+      { name: "날카로운 시야",   desc: "공격력 +0.5%" },
+      { name: "빠른 발",         desc: "DPS +1%" },
+      { name: "집중 추적",       desc: "공격력 +0.5%" },
+      { name: "민첩성",          desc: "클릭 피해 +1%" },
+      { name: "사냥 본능",       desc: "공격력 +0.5%" },
+      { name: "위기 감지",       desc: "DPS +1%" },
+      { name: "전장 분석",       desc: "경험치 +1%" },
+      { name: "급소 탐지",       desc: "공격력 +1%" },
+      { name: "소재 수집",       desc: "재료 확률 +1%" },
+      { name: "★ 입문 달성",    desc: "공격력 +1% · DPS +2%" },
+      /* T2 견습 (10-19, 1pt) */
+      { name: "야생 감각",       desc: "공격력 +1%" },
+      { name: "전투 집중",       desc: "DPS +1.5%" },
+      { name: "예리한 판단",     desc: "클릭 피해 +1.5%" },
+      { name: "적 분석",         desc: "경험치 +1.5%" },
+      { name: "기습 전술",       desc: "공격력 +1%" },
+      { name: "고속 추격",       desc: "DPS +1.5%" },
+      { name: "정확한 타격",     desc: "클릭 피해 +2%" },
+      { name: "포식자의 눈",     desc: "공격력 +1.5%" },
+      { name: "소재 감각",       desc: "재료 확률 +1.5%" },
+      { name: "★ 견습 달성",    desc: "공격력 +2% · DPS +2%" },
+      /* T3 숙련 (20-29, 1pt) */
+      { name: "전투 리듬",       desc: "DPS +2%" },
+      { name: "치명타 연구",     desc: "클릭 피해 +2%" },
+      { name: "먹이 추적",       desc: "공격력 +1.5%" },
+      { name: "함정 설치",       desc: "재료 확률 +2%" },
+      { name: "초고속 공격",     desc: "DPS +2%" },
+      { name: "급소 타격",       desc: "클릭 피해 +2.5%" },
+      { name: "경험 흡수",       desc: "경험치 +2%" },
+      { name: "연속 공격",       desc: "공격력 +2%" },
+      { name: "자연의 가르침",   desc: "재료 확률 +2%" },
+      { name: "★ 숙련 달성",    desc: "공격력 +3% · DPS +3%" },
+      /* T4 장인 (30-39, 1pt) */
+      { name: "맹수의 발톱",     desc: "공격력 +2%" },
+      { name: "전속력 추격",     desc: "DPS +2.5%" },
+      { name: "정밀 타격",       desc: "클릭 피해 +3%" },
+      { name: "전투 직관",       desc: "공격력 +2%" },
+      { name: "고급 추적",       desc: "재료 확률 +2.5%" },
+      { name: "연속 타격",       desc: "DPS +2.5%" },
+      { name: "극한 집중",       desc: "클릭 피해 +3%" },
+      { name: "포식의 경지",     desc: "공격력 +2.5%" },
+      { name: "경험 증폭",       desc: "경험치 +2.5%" },
+      { name: "★ 장인 달성",    desc: "DPS +4% · 클릭 피해 +4%" },
+      /* T5 명장 (40-49, 1pt) */
+      { name: "맹공",            desc: "공격력 +3%" },
+      { name: "극한 DPS",        desc: "DPS +3%" },
+      { name: "무한 추격",       desc: "클릭 피해 +3.5%" },
+      { name: "격분",            desc: "공격력 +3%" },
+      { name: "감각 증폭",       desc: "재료 확률 +3%" },
+      { name: "연속 연타",       desc: "DPS +3.5%" },
+      { name: "전장 지배",       desc: "클릭 피해 +4%" },
+      { name: "투사의 의지",     desc: "공격력 +3.5%" },
+      { name: "경험 폭발",       desc: "경험치 +3%" },
+      { name: "★ 명장 달성",    desc: "공격력 +5% · DPS +5%" },
+      /* T6 전사 (50-59, 2pt) */
+      { name: "전투 마스터",     desc: "DPS +4%" },
+      { name: "살상 본능",       desc: "공격력 +4%" },
+      { name: "정밀 작살",       desc: "클릭 피해 +4%" },
+      { name: "약점 노출",       desc: "재료 확률 +3.5%" },
+      { name: "극한 사냥",       desc: "DPS +4%" },
+      { name: "신속 공격",       desc: "클릭 피해 +4.5%" },
+      { name: "전장 경험",       desc: "경험치 +4%" },
+      { name: "절대 사냥",       desc: "공격력 +4%" },
+      { name: "강인한 의지",     desc: "DPS +4.5%" },
+      { name: "★ 전사 달성",    desc: "공격력 +6% · 클릭 피해 +6%" },
+      /* T7 고급 전사 (60-69, 2pt) */
+      { name: "신화 속도",       desc: "DPS +5%" },
+      { name: "극한 타격",       desc: "공격력 +5%" },
+      { name: "무한 의지",       desc: "클릭 피해 +5%" },
+      { name: "신화 감각",       desc: "재료 확률 +4%" },
+      { name: "절대 추격",       desc: "DPS +5%" },
+      { name: "영혼 타격",       desc: "클릭 피해 +5.5%" },
+      { name: "지식 흡수",       desc: "경험치 +5%" },
+      { name: "신화 공격",       desc: "공격력 +5.5%" },
+      { name: "무한 사냥",       desc: "DPS +5.5%" },
+      { name: "★ 고급 달성",    desc: "DPS +7% · 공격력 +7%" },
+      /* T8 전설 사냥꾼 (70-79, 2pt) */
+      { name: "신성한 속도",     desc: "DPS +6%" },
+      { name: "불멸의 공격",     desc: "공격력 +6%" },
+      { name: "신화 타격",       desc: "클릭 피해 +6%" },
+      { name: "절대 감각",       desc: "재료 확률 +5%" },
+      { name: "극한 추격",       desc: "DPS +6%" },
+      { name: "신성 타격",       desc: "클릭 피해 +6.5%" },
+      { name: "경험의 바다",     desc: "경험치 +6%" },
+      { name: "신화 맹공",       desc: "공격력 +6.5%" },
+      { name: "불멸의 추격",     desc: "DPS +7%" },
+      { name: "★ 전설 달성",    desc: "공격력 +10% · DPS +10%" },
+      /* T9 신화 사냥꾼 (80-89, 3pt) */
+      { name: "신화 본능",       desc: "클릭 피해 +7%" },
+      { name: "절대 포식",       desc: "공격력 +7%" },
+      { name: "무한 속도",       desc: "DPS +8%" },
+      { name: "신성한 타격",     desc: "클릭 피해 +7.5%" },
+      { name: "우주적 사냥",     desc: "공격력 +8%" },
+      { name: "시간 초월 속도",  desc: "DPS +8.5%" },
+      { name: "신화 경험",       desc: "경험치 +7%" },
+      { name: "절대 공격",       desc: "공격력 +8.5%" },
+      { name: "우주 관통",       desc: "클릭 피해 +8%" },
+      { name: "★ 신화 달성",    desc: "공격력 +12% · DPS +12%" },
+      /* T10 초월 사냥꾼 (90-99, 3pt) */
+      { name: "초월 본능",       desc: "재료 확률 +6%" },
+      { name: "신성 맹공",       desc: "공격력 +9%" },
+      { name: "우주 속도",       desc: "DPS +9%" },
+      { name: "절대 타격",       desc: "클릭 피해 +9%" },
+      { name: "신화 경지",       desc: "공격력 +10%" },
+      { name: "시간을 넘은 힘",  desc: "DPS +10%" },
+      { name: "우주적 정밀도",   desc: "클릭 피해 +10%" },
+      { name: "전설의 왕",       desc: "공격력 +11%" },
+      { name: "무한의 속도",     desc: "DPS +11%" },
+      { name: "★ 초월 달성",    desc: "공격력 +15% · DPS +15% · 클릭 피해 +15%" },
     ],
   },
   merchant: {
     label: "상인", icon: CircleDollarSign, tone: "gold",
     nodes: [
-      { name: "흥정의 기술",    desc: "상점 할인 -8%" },
-      { name: "시장 안목",      desc: "판매 이익 +10%" },
-      { name: "단골 상인",      desc: "상점 할인 -12%" },
-      { name: "무역 전문가",    desc: "골드 +10% · 판매 이익 +12%" },
-      { name: "상인의 직감",    desc: "골드 +15% · 상점 할인 -15%" },
-      { name: "황금 제국",      desc: "골드 +25% · 판매 이익 +25%" },
+      /* T1 행상인 (0-9, 1pt) */
+      { name: "흥정 시작",       desc: "골드 +1%" },
+      { name: "시장 파악",       desc: "판매 이익 +0.5%" },
+      { name: "절약 습관",       desc: "상점 할인 -1%" },
+      { name: "거래 감각",       desc: "골드 +1%" },
+      { name: "물가 이해",       desc: "판매 이익 +0.5%" },
+      { name: "단골 확보",       desc: "상점 할인 -1%" },
+      { name: "투자 기초",       desc: "골드 +1%" },
+      { name: "시세 파악",       desc: "판매 이익 +1%" },
+      { name: "재고 관리",       desc: "상점 할인 -1.5%" },
+      { name: "★ 행상인 완료",  desc: "골드 +2% · 판매 이익 +1%" },
+      /* T2 견습 (10-19, 1pt) */
+      { name: "거래 기술",       desc: "골드 +1.5%" },
+      { name: "가치 감별",       desc: "판매 이익 +1%" },
+      { name: "대량 구매",       desc: "상점 할인 -1.5%" },
+      { name: "상권 이해",       desc: "골드 +1.5%" },
+      { name: "이익 극대화",     desc: "판매 이익 +1%" },
+      { name: "협상 기술",       desc: "상점 할인 -2%" },
+      { name: "자본 관리",       desc: "골드 +1.5%" },
+      { name: "품질 판단",       desc: "판매 이익 +1.5%" },
+      { name: "공급망 구축",     desc: "상점 할인 -2%" },
+      { name: "★ 견습 완료",    desc: "골드 +2% · 상점 할인 -2%" },
+      /* T3 숙련 (20-29, 1pt) */
+      { name: "거래 흐름 파악",  desc: "골드 +2%" },
+      { name: "수익 구조",       desc: "판매 이익 +1.5%" },
+      { name: "도매 접근",       desc: "상점 할인 -2.5%" },
+      { name: "시장 지배",       desc: "골드 +2%" },
+      { name: "이익 배분",       desc: "판매 이익 +1.5%" },
+      { name: "가격 조율",       desc: "상점 할인 -2.5%" },
+      { name: "자본 확장",       desc: "골드 +2%" },
+      { name: "평가 능력",       desc: "판매 이익 +2%" },
+      { name: "독점 공급",       desc: "상점 할인 -3%" },
+      { name: "★ 숙련 완료",    desc: "골드 +3% · 판매 이익 +2%" },
+      /* T4 장인 (30-39, 1pt) */
+      { name: "시장 장악",       desc: "골드 +2.5%" },
+      { name: "가치 창출",       desc: "판매 이익 +2%" },
+      { name: "특별 계약",       desc: "상점 할인 -3%" },
+      { name: "금융 이해",       desc: "골드 +2.5%" },
+      { name: "수익 증대",       desc: "판매 이익 +2%" },
+      { name: "선도적 거래",     desc: "상점 할인 -3.5%" },
+      { name: "자산 운용",       desc: "골드 +3%" },
+      { name: "브랜드 가치",     desc: "판매 이익 +2.5%" },
+      { name: "배타적 거래",     desc: "상점 할인 -3.5%" },
+      { name: "★ 장인 완료",    desc: "골드 +4% · 판매 이익 +3%" },
+      /* T5 명장 (40-49, 1pt) */
+      { name: "시장 독점",       desc: "골드 +3%" },
+      { name: "부의 창조",       desc: "판매 이익 +3%" },
+      { name: "황금 계약",       desc: "상점 할인 -4%" },
+      { name: "경제 장악",       desc: "골드 +3.5%" },
+      { name: "이익 폭발",       desc: "판매 이익 +3%" },
+      { name: "프리미엄 거래",   desc: "상점 할인 -4%" },
+      { name: "복리 운용",       desc: "골드 +3.5%" },
+      { name: "전략적 판매",     desc: "판매 이익 +3.5%" },
+      { name: "최대 절약",       desc: "상점 할인 -4.5%" },
+      { name: "★ 명장 완료",    desc: "골드 +5% · 상점 할인 -5%" },
+      /* T6 무역상 (50-59, 2pt) */
+      { name: "국제 무역",       desc: "골드 +4%" },
+      { name: "희귀 가치",       desc: "판매 이익 +4%" },
+      { name: "무역 특권",       desc: "상점 할인 -5%" },
+      { name: "경제 지배",       desc: "골드 +4%" },
+      { name: "수익 극한",       desc: "판매 이익 +4%" },
+      { name: "독점 공급망",     desc: "상점 할인 -5%" },
+      { name: "대규모 투자",     desc: "골드 +4.5%" },
+      { name: "명품 거래",       desc: "판매 이익 +4.5%" },
+      { name: "황금 경로",       desc: "상점 할인 -5.5%" },
+      { name: "★ 무역상 달성",  desc: "골드 +6% · 판매 이익 +5%" },
+      /* T7 부호 (60-69, 2pt) */
+      { name: "황금의 손",       desc: "골드 +5%" },
+      { name: "부의 증폭",       desc: "판매 이익 +5%" },
+      { name: "전략적 절약",     desc: "상점 할인 -6%" },
+      { name: "자본의 신",       desc: "골드 +5%" },
+      { name: "신화적 가치",     desc: "판매 이익 +5%" },
+      { name: "특별 파트너십",   desc: "상점 할인 -6%" },
+      { name: "금융 마스터",     desc: "골드 +5.5%" },
+      { name: "전설의 거래",     desc: "판매 이익 +5.5%" },
+      { name: "극한 절약",       desc: "상점 할인 -6.5%" },
+      { name: "★ 부호 달성",    desc: "골드 +7% · 판매 이익 +6%" },
+      /* T8 황금 제국 (70-79, 2pt) */
+      { name: "황제의 재고",     desc: "골드 +6%" },
+      { name: "불멸의 가치",     desc: "판매 이익 +6%" },
+      { name: "황금 특권",       desc: "상점 할인 -7%" },
+      { name: "신화의 부",       desc: "골드 +6%" },
+      { name: "영원한 이익",     desc: "판매 이익 +6.5%" },
+      { name: "전설적 계약",     desc: "상점 할인 -7%" },
+      { name: "우주적 자본",     desc: "골드 +6.5%" },
+      { name: "신성한 거래",     desc: "판매 이익 +7%" },
+      { name: "무한 절약",       desc: "상점 할인 -7.5%" },
+      { name: "★ 황금 달성",    desc: "골드 +10% · 상점 할인 -10%" },
+      /* T9 전설의 상인 (80-89, 3pt) */
+      { name: "신화 자산",       desc: "골드 +7%" },
+      { name: "절대적 가치",     desc: "판매 이익 +8%" },
+      { name: "신성 계약",       desc: "상점 할인 -8%" },
+      { name: "우주 경제",       desc: "골드 +8%" },
+      { name: "신화적 거래",     desc: "판매 이익 +8%" },
+      { name: "전설 공급망",     desc: "상점 할인 -9%" },
+      { name: "절대 부의 장",    desc: "골드 +8%" },
+      { name: "시간 초월 가치",  desc: "판매 이익 +9%" },
+      { name: "극한 독점",       desc: "상점 할인 -9%" },
+      { name: "★ 전설 달성",    desc: "골드 +10% · 판매 이익 +10%" },
+      /* T10 황금의 신 (90-99, 3pt) */
+      { name: "초월 경제",       desc: "골드 +9%" },
+      { name: "신성한 가치",     desc: "판매 이익 +10%" },
+      { name: "신성 할인",       desc: "상점 할인 -10%" },
+      { name: "우주 자산",       desc: "골드 +10%" },
+      { name: "황금의 의지",     desc: "판매 이익 +11%" },
+      { name: "신화 절약",       desc: "상점 할인 -11%" },
+      { name: "절대 부의 경지",  desc: "골드 +11%" },
+      { name: "초월 가치",       desc: "판매 이익 +12%" },
+      { name: "황금의 신",       desc: "골드 +12% · 판매 이익 +12%" },
+      { name: "★ 황금신 달성",  desc: "골드 +15% · 판매 이익 +15% · 상점 할인 -15%" },
     ],
   },
 };
@@ -740,12 +1058,12 @@ function getCumulativeEnhanceCost(enhance: number) {
 function getSwordSaleValue(enhance: number, merchant: number) {
   const cumulativeInvestment = getCumulativeEnhanceCost(enhance);
   const legacyValue = Math.floor(
-    (120 + Math.pow(1.36, enhance) * 55) * (1 + merchant * 0.055),
+    (120 + Math.pow(1.36, enhance) * 55) * (1 + merchant * 0.009),
   );
   const guaranteedProfitValue = Math.floor(
     cumulativeInvestment * (1.18 + Math.min(enhance, 50) * 0.006) + 90 * enhance + 120,
   );
-  return Math.floor(Math.max(legacyValue, guaranteedProfitValue) * (1 + merchant * 0.035));
+  return Math.floor(Math.max(legacyValue, guaranteedProfitValue) * (1 + merchant * 0.006));
 }
 
 function derive(state: GameState): Derived {
@@ -754,13 +1072,13 @@ function derive(state: GameState): Derived {
   const pu = (id: string) => state.prestigeUpgrades?.[id] ?? 0;
   const prestigeMultiplier = 1 + state.totalPrestigeStones * 0.035 + state.prestige * 0.08;
   const permAttackMult = 1 + pu("perm_attack") * 0.10;
-  const attack = Math.floor(10 * Math.pow(1.24, state.enhance) * prestigeMultiplier * (1 + state.traits.hunter * 0.035) * art.attackMult * permAttackMult);
-  const dps = Math.floor(attack * (0.5 + state.level * 0.015) * (1 + state.traits.hunter * 0.045) * art.dpsMult);
-  const clickDamage = Math.max(1, Math.floor(attack * (0.4 + state.traits.hunter * 0.012) * art.clickMult));
+  const attack = Math.floor(10 * Math.pow(1.24, state.enhance) * prestigeMultiplier * (1 + state.traits.hunter * 0.004) * art.attackMult * permAttackMult);
+  const dps = Math.floor(attack * (0.5 + state.level * 0.015) * (1 + state.traits.hunter * 0.005) * art.dpsMult);
+  const clickDamage = Math.max(1, Math.floor(attack * (0.4 + state.traits.hunter * 0.002) * art.clickMult));
   const cumulativeInvestment = getCumulativeEnhanceCost(state.enhance);
   const saleValue = getSwordSaleValue(state.enhance, state.traits.merchant);
   const saleProfit = saleValue - cumulativeInvestment;
-  const costReduction = clamp(state.traits.smith * 0.012, 0, 0.3) + clamp(-(art.costMult - 1), 0, 0.3);
+  const costReduction = clamp(state.traits.smith * 0.002, 0, 0.40) + clamp(-(art.costMult - 1), 0, 0.30);
   const upgradeCost = Math.floor(getBaseUpgradeCost(state.enhance) * (1 - costReduction));
   const baseRate =
     state.enhance < 10
@@ -773,14 +1091,14 @@ function derive(state: GameState): Derived {
             ? 20 - (state.enhance - 30) * 1.0
             : 9 - (state.enhance - 40) * 0.6;
   const successRate = clamp(
-    baseRate + state.traits.smith * 0.75 + state.prestigeStones * 0.05
+    baseRate + state.traits.smith * 0.12 + state.prestigeStones * 0.05
     + art.successRateAdd + pu("safety_net") * 4,
     1.5, 97,
   );
   const rawDestroyRate = state.enhance < 10 ? 0 : state.enhance < 20 ? 35 : state.enhance < 30 ? 54 : state.enhance < 40 ? 72 : 86;
-  const destroyRate = Math.max(0, rawDestroyRate + art.destroyRateAdd);
+  const destroyRate = Math.max(0, rawDestroyRate - state.traits.smith * 0.08 + art.destroyRateAdd);
   const expToNext = Math.floor(80 * Math.pow(1.21, state.level - 1));
-  const traitPointsEarned = Math.max(0, state.level - 1) + state.prestige * 5;
+  const traitPointsEarned = Math.floor(state.level * 2) + state.prestige * 20 + Math.floor(state.bossesKilled / 3);
   const traitPointsSpent = state.traits.smith + state.traits.hunter + state.traits.merchant;
   const traitPointsAvailable = traitPointsEarned - traitPointsSpent;
   const monsterMaxHp = getMonsterMaxHp(state, currentRegion);
@@ -823,9 +1141,9 @@ function calculateKillRewards(state: GameState, derived = derive(state)) {
   const region = derived.currentRegion;
   const boss = derived.isBoss;
   const art = getArtifactBonuses(state.artifacts ?? []);
-  const gold = Math.floor(region.gold * (1 + state.regionStep * 0.035) * (boss ? 7 : 1) * (1 + state.traits.merchant * 0.018) * art.goldMult);
-  const exp = Math.floor(region.exp * (1 + state.regionStep * 0.025) * (boss ? 5 : 1) * (1 + state.traits.hunter * 0.018) * art.expMult);
-  const materialRollChance = clamp(region.materialChance + state.traits.hunter * 0.006 + (boss ? 0.35 : 0) + art.materialChanceAdd + (state.prestigeUpgrades?.["mat_hunter"] ?? 0) * 0.06, 0, 0.95);
+  const gold = Math.floor(region.gold * (1 + state.regionStep * 0.035) * (boss ? 7 : 1) * (1 + state.traits.merchant * 0.003) * art.goldMult);
+  const exp = Math.floor(region.exp * (1 + state.regionStep * 0.025) * (boss ? 5 : 1) * (1 + state.traits.hunter * 0.003) * art.expMult);
+  const materialRollChance = clamp(region.materialChance + state.traits.hunter * 0.001 + (boss ? 0.35 : 0) + art.materialChanceAdd + (state.prestigeUpgrades?.["mat_hunter"] ?? 0) * 0.06, 0, 0.95);
   const materialAmount = boss ? 2 + Math.floor(state.regionStep / 25) : 1;
   return { gold, exp, materialKey: region.material as MaterialKey, materialAmount, materialRollChance, boss };
 }
@@ -905,7 +1223,7 @@ export default function Home() {
       if (!parsed) return;
       const now = Date.now();
       const elapsedSeconds = Math.floor((now - (parsed.lastSavedAt || now)) / 1000);
-      const capSeconds = Math.floor(OFFLINE_CAP_HOURS * 3600 * (1 + parsed.traits.merchant * 0.015));
+      const capSeconds = Math.floor(OFFLINE_CAP_HOURS * 3600 * (1 + parsed.traits.merchant * 0.002));
       const appliedSeconds = clamp(elapsedSeconds, 0, capSeconds);
       if (appliedSeconds > 10) {
         const d = derive(parsed);
