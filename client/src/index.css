@@ -3862,7 +3862,9 @@ button:active:not(:disabled),
   pointer-events: none;
   z-index: 0;
 }
-.skt-tree-sq > svg { position: relative; z-index: 2; filter: drop-shadow(0 1px 0 rgba(0,0,0,0.8)); }
+.skt-tree-sq > svg,
+.skt-tree-sq > svg path { position: relative; z-index: 2; }
+.skt-tree-sq > svg { filter: drop-shadow(0 1px 2px rgba(0,0,0,0.9)); isolation: isolate; }
 .skt-tree-sq:active { transform: translateY(2px); box-shadow: 0 2px 0 #02000a, inset 2px 2px 0 rgba(150,110,200,0.30), inset -2px -2px 0 rgba(0,0,0,0.55), inset 0 0 0 4px rgba(8,4,18,0.45); }
 
 /* Milestone (every 10th) — larger frame, brighter accent */
@@ -3955,9 +3957,9 @@ button:active:not(:disabled),
     radial-gradient(circle at 28% 22%, rgba(70, 50, 90, 0.10) 0%, transparent 50%),
     linear-gradient(160deg, #1a0e2a 0%, #0e0618 50%, #050208 100%);
   outline-color: #02000a;
-  color: #2a1d3a;
+  color: #7a5a9a;
   opacity: 0.95;
-  filter: saturate(0.5);
+  filter: saturate(0.4) brightness(0.85);
   pointer-events: auto;
 }
 
