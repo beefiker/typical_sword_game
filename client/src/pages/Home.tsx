@@ -1854,16 +1854,16 @@ export default function Home() {
             const bInfo = TRAIT_BRANCHES[currentBranch];
             const BIcon = bInfo.icon;
             const bVal = state.traits[currentBranch];
-            const NODE_SIZE = 44;
-            const CELL = 62;
-            const ROW_H = 76;
-            const PAD = 30;
+            const NODE_SIZE = 52;
+            const CELL = 70;
+            const ROW_H = 82;
+            const PAD = 32;
             const COLS = 10;
             const ROWS = 10;
             const TREE_W = PAD * 2 + (COLS - 1) * CELL + NODE_SIZE;
-            const TREE_H = PAD * 2 + (ROWS - 1) * ROW_H + NODE_SIZE + 30;
+            const TREE_H = PAD * 2 + (ROWS - 1) * ROW_H + NODE_SIZE + 34;
 
-            // S-wave arch per inTier position: even tiers arc UP, odd tiers arc DOWN
+            // S-wave arch: even tiers arc UP, odd tiers arc DOWN — creates flowing path
             const Y_EVEN = [0, -6, -10, -13, -15, -15, -13, -10, -6, 0];
             const Y_ODD  = [0,  6,  10,  13,  15,  15,  13,  10,  6, 0];
 
@@ -1873,6 +1873,14 @@ export default function Home() {
               const col = tier % 2 === 0 ? inTier : 9 - inTier;
               const yJitter = tier % 2 === 0 ? Y_EVEN[inTier] : Y_ODD[inTier];
               return { x: PAD + col * CELL, y: PAD + tier * ROW_H + yJitter };
+            };
+
+            // KoM visibility: only active nodes + the single next-unlockable node are shown
+            const isNodeVisible = (idx: number) => {
+              if (idx < 0 || idx >= bInfo.nodes.length) return false;
+              const th = TRAIT_NODE_THRESHOLDS[idx];
+              const prevTh = idx === 0 ? 0 : TRAIT_NODE_THRESHOLDS[idx - 1];
+              return bVal >= th || bVal >= prevTh;
             };
 
             const goToBranch = (i: number) => {
@@ -1919,11 +1927,6 @@ export default function Home() {
             const floatCost   = floatThresh - floatVal;
             const floatAfford = derived.traitPointsAvailable >= floatCost;
 
-            const toneStroke =
-              bInfo.tone === "cyan"   ? "#03aed2" :
-              bInfo.tone === "orange" ? "#f45b26" :
-              bInfo.tone === "gold"   ? "#f8de22" : "#888";
-
             return (
               <div className="skt-panel">
                 {/* Branch navigator */}
@@ -1966,37 +1969,39 @@ export default function Home() {
                       transform: `translate(${traitPan.x}px, ${traitPan.y}px)`,
                     }}
                   >
-                    {/* Lines layer */}
+                    {/* Lines layer — only between visible node pairs */}
                     <svg className="skt-tree-svg" width={TREE_W} height={TREE_H} viewBox={`0 0 ${TREE_W} ${TREE_H}`}>
                       {bInfo.nodes.map((_, i) => {
                         if (i === 0) return null;
+                        if (!isNodeVisible(i - 1) || !isNodeVisible(i)) return null;
                         const a = getPos(i - 1);
                         const b = getPos(i);
-                        const prevTh = TRAIT_NODE_THRESHOLDS[i - 1];
-                        const lit = bVal >= prevTh;
+                        const bothActive = bVal >= TRAIT_NODE_THRESHOLDS[i];
                         const half = NODE_SIZE / 2;
+                        const lineColor = bothActive ? "#9a7210" : "#8a1a08";
+                        const glowColor = bothActive ? "rgba(200,144,10,0.55)" : "rgba(192,32,16,0.55)";
                         return (
                           <line
                             key={i}
                             x1={a.x + half} y1={a.y + half}
                             x2={b.x + half} y2={b.y + half}
-                            stroke={lit ? toneStroke : "#2a1d3a"}
-                            strokeWidth={lit ? 4 : 3}
+                            stroke={lineColor}
+                            strokeWidth={3}
                             strokeLinecap="square"
-                            style={lit ? { filter: `drop-shadow(0 0 4px ${toneStroke})` } : undefined}
+                            style={{ filter: `drop-shadow(0 0 3px ${glowColor})` }}
                           />
                         );
                       })}
                     </svg>
 
-                    {/* Node squares */}
+                    {/* Node squares — only active/next are rendered (KoM style) */}
                     {bInfo.nodes.map((node, idx) => {
+                      if (!isNodeVisible(idx)) return null;
                       const pos = getPos(idx);
                       const threshold = TRAIT_NODE_THRESHOLDS[idx];
                       const prevTh = idx === 0 ? 0 : TRAIT_NODE_THRESHOLDS[idx - 1];
                       const isActive = bVal >= threshold;
                       const isNext = !isActive && bVal >= prevTh;
-                      const isHidden = !isActive && !isNext;
                       const isSel = selectedTraitNode?.branch === currentBranch && selectedTraitNode.idx === idx;
                       const isMilestone = (idx + 1) % 10 === 0;
                       const nodeTier = Math.floor(idx / 10);
@@ -2005,23 +2010,17 @@ export default function Home() {
                       return (
                         <button
                           key={idx}
-                          className={`skt-tree-sq skt-${isActive ? "active" : isNext ? "next" : "locked"} skt-tone-${bInfo.tone}${isSel ? " selected" : ""}${isMilestone ? " milestone" : ""}`}
+                          className={`skt-tree-sq skt-${isActive ? "active" : "next"}${isSel ? " selected" : ""}${isMilestone ? " milestone" : ""}`}
                           style={{ left: pos.x, top: pos.y, width: NODE_SIZE, height: NODE_SIZE }}
                           onClick={() => onNodeClick(idx)}
                           onMouseDown={(e) => e.stopPropagation()}
                           onTouchStart={(e) => e.stopPropagation()}
                           aria-pressed={isSel}
-                          aria-label={isHidden ? `노드 ${idx + 1} 잠김` : node.name}
+                          aria-label={isNext ? `${node.name} (활성화 가능)` : node.name}
                         >
-                          {isActive ? (
-                            <Check size={16} strokeWidth={2.5} />
-                          ) : isHidden ? (
-                            <Lock size={12} />
-                          ) : (
-                            <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                              <path d={tierPath} />
-                            </svg>
-                          )}
+                          <svg width="22" height="22" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                            <path d={tierPath} />
+                          </svg>
                         </button>
                       );
                     })}
