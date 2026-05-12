@@ -47,7 +47,6 @@ const ASSETS = {
 const STORAGE_KEY = "typical-sword-game:v1";
 const SECOND = 1000;
 const OFFLINE_CAP_HOURS = 12;
-const ENDING_PRESTIGE_REQUIREMENT = 3;
 
 const REGIONS = [
   {
@@ -122,10 +121,9 @@ const REGIONS = [
     id: "abyss_forge",
     name: "심연 제련소",
     short: "ABYSS",
-    unlock: "+40 검 또는 명성 1",
+    unlock: "+40 검 또는 Lv.45",
     requiredEnhance: 40,
     requiredLevel: 45,
-    prestigeRequired: 1,
     baseHp: 52000,
     hpGrowth: 1.195,
     gold: 7600,
@@ -140,10 +138,9 @@ const REGIONS = [
     id: "nameless_throne",
     name: "무명의 왕좌",
     short: "THRONE",
-    unlock: "+50 검, Lv.60, 명성 3",
+    unlock: "+50 검 · Lv.60 · 심연핵 10개",
     requiredEnhance: 50,
     requiredLevel: 60,
-    prestigeRequired: 3,
     baseHp: 760000,
     hpGrowth: 1.215,
     gold: 54000,
@@ -718,17 +715,10 @@ function isFinalRegion(region: (typeof REGIONS)[number]) {
 function isRegionUnlocked(region: (typeof REGIONS)[number], state: GameState) {
   const enhanceOk = state.enhance >= region.requiredEnhance;
   const levelOk = state.level >= region.requiredLevel;
-  const prestigeRequired = regionPrestigeRequired(region);
-  const prestigeOk = !prestigeRequired || state.prestige >= prestigeRequired;
   if (isFinalRegion(region)) {
-    return (
-      state.enhance >= 50 &&
-      state.level >= 60 &&
-      state.prestige >= ENDING_PRESTIGE_REQUIREMENT &&
-      state.inventory.abyssCore >= 10
-    );
+    return state.enhance >= 50 && state.level >= 60 && state.inventory.abyssCore >= 10;
   }
-  return prestigeOk && (enhanceOk || levelOk);
+  return enhanceOk || levelOk;
 }
 
 function getMonsterMaxHp(state: GameState, region = getRegion(state.regionId)) {
@@ -898,6 +888,7 @@ export default function Home() {
   const [offlineSummary, setOfflineSummary] = useState<string | null>(null);
   const [dangerMode, setDangerMode] = useState(false);
   const [showGoldHud, setShowGoldHud] = useState(false);
+  const [showEnding, setShowEnding] = useState(false);
   const [traitBranchIdx, setTraitBranchIdx] = useState(0);
   const [selectedTraitNode, setSelectedTraitNode] = useState<{ branch: TraitBranch; idx: number } | null>(null);
   const traitTouchX = useRef(0);
@@ -955,7 +946,6 @@ export default function Home() {
     const timer = window.setInterval(() => {
       setState((prev) => {
         const d = derive(prev);
-        if (isFinalRegion(d.currentRegion) && prev.endingSeen) return { ...prev, lastSavedAt: Date.now() };
         let next: GameState = { ...prev, inventory: { ...prev.inventory }, traits: { ...prev.traits } };
         next.monsterHp -= d.dps;
         let killCount = 0;
@@ -1008,11 +998,10 @@ export default function Home() {
           }
         }
 
-        const finalUnlocked = isRegionUnlocked(REGIONS[5], next);
-        if (finalUnlocked && next.regionId === "nameless_throne" && next.regionStep > 1 && !next.endingSeen) {
+        if (killCount > 0 && next.regionId === "nameless_throne" && !next.endingSeen) {
           next.endingSeen = true;
-          setLogs((prevLogs) => addLog(prevLogs, "엔딩 도달: 무명의 왕좌가 침묵했습니다.", "gold"));
-          toast.success("엔딩 도달", { description: "무명의 왕좌를 제압했습니다. 하지만 명성 루프는 계속됩니다." });
+          setShowEnding(true);
+          setLogs((prevLogs) => addLog(prevLogs, "◆ 전설의 검이 완성되었습니다. 무명의 왕좌가 침묵했습니다. ◆", "gold"));
         }
         next.lastSavedAt = Date.now();
         return next;
@@ -1280,8 +1269,6 @@ export default function Home() {
     }, "gold");
   }
 
-
-  const finalUnlocked = isRegionUnlocked(REGIONS[5], state);
 
   return (
     <main className={`game-shell ${dangerMode ? "danger-mode" : ""}`}>
@@ -1697,14 +1684,26 @@ export default function Home() {
                   })}
                 </div>
 
-                <SectionTitle icon={Trophy} title="최종 해금 조건" eyebrow="ENDING" />
-                <div className="ending-grid">
-                  <CheckItem done={state.enhance >= 50} text="+50 검" />
-                  <CheckItem done={state.level >= 60} text="Lv.60" />
-                  <CheckItem done={state.prestige >= ENDING_PRESTIGE_REQUIREMENT} text="명성 3회" />
-                  <CheckItem done={state.inventory.abyssCore >= 10} text="심연핵 10개" />
-                  <CheckItem done={finalUnlocked} text="왕좌 입장 가능" />
-                </div>
+                {!state.endingSeen && (
+                  <>
+                    <SectionTitle icon={Sword} title="무명의 왕좌" eyebrow="FINAL GOAL" />
+                    <div className="ending-grid">
+                      <CheckItem done={state.enhance >= 50} text="+50 검" />
+                      <CheckItem done={state.level >= 60} text="Lv.60" />
+                      <CheckItem done={state.inventory.abyssCore >= 10} text="심연핵 10개" />
+                      <CheckItem done={isRegionUnlocked(REGIONS[5], state)} text="왕좌 입장" />
+                    </div>
+                  </>
+                )}
+                {state.endingSeen && (
+                  <div className="ending-clear-badge">
+                    <Trophy size={22} />
+                    <div>
+                      <strong>전설 달성!</strong>
+                      <span>무명의 왕좌를 제압했습니다.</span>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })() : null}
@@ -1739,6 +1738,82 @@ export default function Home() {
           ) : null}
         </section>
       </section>
+
+      {/* ── Ending Overlay ─────────────────────────────────── */}
+      {showEnding && (
+        <div className="ending-overlay" role="dialog" aria-modal="true">
+          <div className="ending-stars">
+            {Array.from({ length: 24 }).map((_, i) => (
+              <span key={i} className="ending-star" style={{
+                left: `${(i * 41 + 7) % 100}%`,
+                animationDelay: `${(i * 0.17) % 2.4}s`,
+                animationDuration: `${1.2 + (i * 0.13) % 1.4}s`,
+              }} />
+            ))}
+          </div>
+          <div className="ending-fireworks">
+            {Array.from({ length: 16 }).map((_, i) => (
+              <span key={i} className="ending-spark" style={{
+                "--angle": `${i * 22.5}deg`,
+                "--dist": `${60 + (i % 4) * 18}px`,
+                "--color": ["#f8de22","#03aed2","#f45b26","#d12052","#88ff88","#cc88ff"][i % 6],
+                animationDelay: `${(i * 0.11) % 0.8}s`,
+              } as React.CSSProperties} />
+            ))}
+          </div>
+          <div className="ending-content">
+            <svg className="ending-sword-svg" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+              {/* Blade */}
+              <rect x="30" y="4"  width="4" height="36" fill="#e8f4ff" />
+              <rect x="29" y="5"  width="1" height="34" fill="#b0d4ff" />
+              <rect x="33" y="5"  width="1" height="34" fill="#8ab8ee" />
+              <rect x="30" y="4"  width="4" height="4"  fill="#ffffff" />
+              {/* Crossguard */}
+              <rect x="22" y="38" width="20" height="4" fill="#f8de22" />
+              <rect x="22" y="38" width="20" height="1" fill="#fffaaa" />
+              <rect x="22" y="40" width="20" height="2" fill="#c8a820" />
+              <rect x="22" y="37" width="2"  height="6" fill="#c8a820" />
+              <rect x="40" y="37" width="2"  height="6" fill="#c8a820" />
+              {/* Grip */}
+              <rect x="29" y="42" width="6" height="12" fill="#8b4513" />
+              <rect x="30" y="43" width="1" height="10" fill="#a05a28" />
+              <rect x="30" y="44" width="4" height="1"  fill="#f8de22" opacity="0.5"/>
+              <rect x="30" y="48" width="4" height="1"  fill="#f8de22" opacity="0.5"/>
+              {/* Pommel */}
+              <rect x="28" y="54" width="8" height="6" fill="#f8de22" />
+              <rect x="29" y="54" width="6" height="1" fill="#fffaaa" />
+              <rect x="28" y="58" width="8" height="2" fill="#c8a820" />
+              {/* Glow effect */}
+              <ellipse cx="32" cy="20" rx="8" ry="20" fill="url(#swordGlow)" opacity="0.35"/>
+              <defs>
+                <radialGradient id="swordGlow" cx="50%" cy="50%">
+                  <stop offset="0%" stopColor="#ffffff" />
+                  <stop offset="100%" stopColor="#03aed2" stopOpacity="0" />
+                </radialGradient>
+              </defs>
+            </svg>
+
+            <div className="ending-text">
+              <p className="ending-eyebrow">GAME CLEAR</p>
+              <h1 className="ending-title">전설이 완성되었다</h1>
+              <p className="ending-sub">무명의 왕좌가 침묵했습니다.</p>
+              <p className="ending-sub">당신의 검은 이제 전설이 되었습니다.</p>
+            </div>
+
+            <div className="ending-stats">
+              <div><span>최종 강화</span><strong>+{state.enhance}</strong></div>
+              <div><span>레벨</span><strong>Lv.{state.level}</strong></div>
+              <div><span>명성</span><strong>{state.prestige}회</strong></div>
+              <div><span>유물</span><strong>{state.artifacts.length}/{15}</strong></div>
+            </div>
+
+            <button className="ending-continue-btn" onClick={() => setShowEnding(false)}>
+              계속 플레이 →
+            </button>
+            <p className="ending-hint-text">유물 수집 · 명성 루프 · 특성 완성은 계속됩니다</p>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
