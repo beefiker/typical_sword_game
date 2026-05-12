@@ -508,6 +508,46 @@ const TRAIT_NODE_THRESHOLDS: number[] = (() => {
 
 type TraitNodeDef = { name: string; desc: string };
 
+// Tier icon SVG paths (one per tier per branch, viewBox 0 0 20 20)
+const TIER_SVG_PATHS: Record<TraitBranch, string[]> = {
+  smith: [
+    "M3 14h14v-2H3v2zm2-2V9h10v3M7 9V6h6v3",                                               // T0: Anvil
+    "M3 4h6v4H3zm5 3 8 9M7 6h2",                                                             // T1: Hammer
+    "M10 2c-1 3-5 6-3 10 .5 2 2 3 3 3s2.5-1 3-3c2-4-2-10-3-10z",                           // T2: Flame
+    "M4 6a4 4 0 015 5L14 17l2-2L11 11A4 4 0 014 6z",                                        // T3: Wrench
+    "M10 7a3 3 0 100 6 3 3 0 000-6zm0-5v2m0 10v2M3 10h2m10 0h2",                            // T4: Gear
+    "M3 8l2-4h10l2 4H3zm0 0v6h14V8",                                                         // T5: Ingot
+    "M10 2L4 5v5c0 4 2.5 6.5 6 7.5 3.5-1 6-3.5 6-7.5V5z",                                  // T6: Shield
+    "M10 1L5 8l5 11 5-11zm0 0 3 7H7",                                                        // T7: Fire diamond
+    "M4 3c1 1 4 4 4 7s-3 6-4 7m8-14c1 1 4 4 4 7s-3 6-4 7M6 8h8M6 12h8",                    // T8: Double helix
+    "M2 15h16M3 15l2-7 3 3.5L10 5l2.5 7.5 3-3.5 2 7",                                       // T9: Crown
+  ],
+  hunter: [
+    "M2 10s4-6 8-6 8 6 8 6-4 6-8 6-8-6-8-6zm8-2a2 2 0 100 4 2 2 0 000-4",                  // T0: Eye
+    "M2 10h14m-5-5 5 5-5 5",                                                                  // T1: Arrow
+    "M10 14V9m-3 4V9m6 4V9M5 9l5-5 5 5",                                                     // T2: Claws
+    "M10 4v3m0 6v3M4 10h3m6 0h3m-4-4a4 4 0 100 8 4 4 0 000-8",                              // T3: Crosshair
+    "M12 2L7 10h5L8 18",                                                                      // T4: Lightning
+    "M4 16L14 6M5 12l-2 5 5-2m9-9v2h2",                                                      // T5: Sword
+    "M3 16c1-1 5-3 8-8 2-3 3-6 3-6s-2 1-4 4L5 10",                                          // T6: Wing
+    "M1 8l5 2-3 4.5L10 10m9-2-5 2 3 4.5L10 10",                                              // T7: Eagle wings
+    "M10 4s-4 3-4 6h8c0-3-4-6-4-6zm-2.5 6-1.5 4m5-4 1.5 4m-2.5-8a1.5 1.5 0 100 3 1.5 1.5 0 000-3", // T8: Phoenix
+    "M10 2l2.2 5.5H18l-4.7 3.5 1.8 5.5L10 13.5l-5 3.5 1.8-5.5L2 7.5h5.8z",                 // T9: Star
+  ],
+  merchant: [
+    "M10 3a7 7 0 100 14A7 7 0 0010 3zm0 4v1.5m0 3V13",                                       // T0: Coin
+    "M6 8c0-2.5 2-4 4-4s4 1.5 4 4v1H6zm-1 1h10l-1.5 8h-7z",                                 // T1: Money bag
+    "M10 2v14M4 16h12M4 8l6-4 6 4M4 8l-2 5h4zM16 8l2 5h-4z",                                // T2: Balance scale
+    "M4 8l6-6 6 6-6 9zm-1 0 1-2m13 2-1-2M3 8h14",                                            // T3: Diamond
+    "M7 6a4 4 0 100 8 4 4 0 000-8zm4 4h7m-3-2v4",                                            // T4: Key
+    "M3 17L15 5M10 4l2 1.5 2-1-.5 2 1.5 1.5-2-.5-1.5 2-.5-2.5z",                            // T5: Magic wand
+    "M3 14h14M3 14l2-7 3 3.5L10 5l2 6 3-3.5 2 7",                                            // T6: Crown
+    "M3 9h14l-1 9H4zm0 0V7a2 2 0 012-2h10a2 2 0 012 2v2M9 11h2v4H9z",                       // T7: Treasure chest
+    "M16 10A6 6 0 104 10A6 6 0 1016 10M14 10A4 4 0 106 10A4 4 0 1014 10M12 10A2 2 0 108 10A2 2 0 1012 10", // T8: Rings
+    "M10 2l2.2 5.5H18l-4.7 3.5 1.8 5.5L10 13.5l-5 3.5 1.8-5.5L2 7.5h5.8z",                 // T9: Radiant star
+  ],
+};
+
 const TRAIT_BRANCHES: Record<TraitBranch, {
   label: string; icon: typeof Hammer; tone: LogTone; nodes: TraitNodeDef[];
 }> = {
@@ -1210,7 +1250,7 @@ export default function Home() {
   const [traitBranchIdx, setTraitBranchIdx] = useState(0);
   const [selectedTraitNode, setSelectedTraitNode] = useState<{ branch: TraitBranch; idx: number } | null>(null);
   const [traitPan, setTraitPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const traitDragRef = useRef<{ startX: number; startY: number; panX: number; panY: number; dragged: boolean } | null>(null);
+  const traitDragRef = useRef<{ startX: number; startY: number; panX: number; panY: number; dragged: boolean; active: boolean } | null>(null);
   const initialized = useRef(false);
   const derived = useMemo(() => derive(state), [state]);
 
@@ -1815,18 +1855,24 @@ export default function Home() {
             const BIcon = bInfo.icon;
             const bVal = state.traits[currentBranch];
             const NODE_SIZE = 44;
-            const CELL = 64;
-            const PAD = 18;
+            const CELL = 62;
+            const ROW_H = 76;
+            const PAD = 30;
             const COLS = 10;
             const ROWS = 10;
             const TREE_W = PAD * 2 + (COLS - 1) * CELL + NODE_SIZE;
-            const TREE_H = PAD * 2 + (ROWS - 1) * CELL + NODE_SIZE;
+            const TREE_H = PAD * 2 + (ROWS - 1) * ROW_H + NODE_SIZE + 30;
+
+            // S-wave arch per inTier position: even tiers arc UP, odd tiers arc DOWN
+            const Y_EVEN = [0, -6, -10, -13, -15, -15, -13, -10, -6, 0];
+            const Y_ODD  = [0,  6,  10,  13,  15,  15,  13,  10,  6, 0];
 
             const getPos = (idx: number) => {
               const tier = Math.floor(idx / 10);
               const inTier = idx % 10;
               const col = tier % 2 === 0 ? inTier : 9 - inTier;
-              return { x: PAD + col * CELL, y: PAD + tier * CELL };
+              const yJitter = tier % 2 === 0 ? Y_EVEN[inTier] : Y_ODD[inTier];
+              return { x: PAD + col * CELL, y: PAD + tier * ROW_H + yJitter };
             };
 
             const goToBranch = (i: number) => {
@@ -1836,17 +1882,23 @@ export default function Home() {
             };
 
             const handlePanStart = (clientX: number, clientY: number) => {
-              traitDragRef.current = { startX: clientX, startY: clientY, panX: traitPan.x, panY: traitPan.y, dragged: false };
+              traitDragRef.current = { startX: clientX, startY: clientY, panX: traitPan.x, panY: traitPan.y, dragged: false, active: true };
             };
             const handlePanMove = (clientX: number, clientY: number) => {
               const drag = traitDragRef.current;
-              if (!drag) return;
+              if (!drag || !drag.active) return;
               const dx = clientX - drag.startX;
               const dy = clientY - drag.startY;
               if (!drag.dragged && Math.hypot(dx, dy) > 6) drag.dragged = true;
               if (drag.dragged) setTraitPan({ x: drag.panX + dx, y: drag.panY + dy });
             };
-            const handlePanEnd = () => { /* keep dragged flag for click-suppress in onClick */ };
+            const handlePanEnd = () => {
+              if (!traitDragRef.current) return;
+              traitDragRef.current.active = false;
+              // Delay clear so onNodeClick can still read the dragged flag
+              const captured = traitDragRef.current;
+              setTimeout(() => { if (traitDragRef.current === captured) traitDragRef.current = null; }, 0);
+            };
 
             const onNodeClick = (idx: number) => {
               if (traitDragRef.current?.dragged) { traitDragRef.current = null; return; }
@@ -1947,6 +1999,8 @@ export default function Home() {
                       const isHidden = !isActive && !isNext;
                       const isSel = selectedTraitNode?.branch === currentBranch && selectedTraitNode.idx === idx;
                       const isMilestone = (idx + 1) % 10 === 0;
+                      const nodeTier = Math.floor(idx / 10);
+                      const tierPath = TIER_SVG_PATHS[currentBranch][nodeTier];
 
                       return (
                         <button
@@ -1959,9 +2013,15 @@ export default function Home() {
                           aria-pressed={isSel}
                           aria-label={isHidden ? `노드 ${idx + 1} 잠김` : node.name}
                         >
-                          {isActive  ? <Check size={18} strokeWidth={3} /> :
-                           isHidden  ? <Lock  size={14} /> :
-                                       <BIcon size={18} />}
+                          {isActive ? (
+                            <Check size={16} strokeWidth={2.5} />
+                          ) : isHidden ? (
+                            <Lock size={12} />
+                          ) : (
+                            <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                              <path d={tierPath} />
+                            </svg>
+                          )}
                         </button>
                       );
                     })}
