@@ -1029,6 +1029,7 @@ export default function Home() {
   const [selectedTraitNode, setSelectedTraitNode] = useState<{ branch: TraitBranch; idx: number } | null>(null);
   const [traitPan, setTraitPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const traitDragRef = useRef<{ startX: number; startY: number; panX: number; panY: number; dragged: boolean; active: boolean } | null>(null);
+  const traitCanvasRef = useRef<HTMLDivElement>(null);
   const initialized = useRef(false);
   const derived = useMemo(() => derive(state), [state]);
 
@@ -1169,6 +1170,16 @@ export default function Home() {
     window.addEventListener("scroll", updateGoldHud, { passive: true });
     return () => window.removeEventListener("scroll", updateGoldHud);
   }, []);
+
+  // Center skill tree pan on root node when tab opens or branch changes
+  useEffect(() => {
+    if (activeTab !== "traits") return;
+    const el = traitCanvasRef.current;
+    const NODE_SIZE = 52, CELL = 72, PAD = 20;
+    const rootCenterX = PAD + 4 * CELL + NODE_SIZE / 2; // root at col 4 → 334px
+    const canvasW = el ? el.clientWidth : 360;
+    setTraitPan({ x: canvasW / 2 - rootCenterX, y: 16 });
+  }, [activeTab, traitBranchIdx]);
 
   const hpPercent = (state.monsterHp / derived.monsterMaxHp) * 100;
   const expPercent = (state.exp / derived.expToNext) * 100;
@@ -1655,7 +1666,7 @@ export default function Home() {
             const goToBranch = (i: number) => {
               setTraitBranchIdx(Math.max(0, Math.min(i, branches.length - 1)));
               setSelectedTraitNode(null);
-              setTraitPan({ x: 0, y: 0 });
+              // pan reset handled by the centering useEffect
             };
 
             const handlePanStart = (clientX: number, clientY: number) => {
@@ -1719,6 +1730,7 @@ export default function Home() {
                 {/* 2D Pannable tree canvas */}
                 <div
                   className="skt-canvas"
+                  ref={traitCanvasRef}
                   onTouchStart={(e) => handlePanStart(e.touches[0].clientX, e.touches[0].clientY)}
                   onTouchMove={(e) => handlePanMove(e.touches[0].clientX, e.touches[0].clientY)}
                   onTouchEnd={handlePanEnd}
@@ -1753,8 +1765,8 @@ export default function Home() {
                               x1={a.x + half} y1={a.y + half}
                               x2={b.x + half} y2={b.y + half}
                               stroke={isGold ? "#9a7210" : isRed ? "#8a1a08" : "#1e1608"}
-                              strokeWidth={isGold || isRed ? 3 : 2}
-                              strokeLinecap="square"
+                              strokeWidth={isGold || isRed ? 4 : 2}
+                              strokeLinecap="round"
                               opacity={isGold || isRed ? 1 : 0.3}
                               style={isGold ? { filter: "drop-shadow(0 0 3px rgba(200,144,10,0.6))" }
                                    : isRed  ? { filter: "drop-shadow(0 0 3px rgba(192,32,16,0.6))" }
@@ -1798,15 +1810,18 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* Floating detail + action panel */}
+                {/* Node detail + action panel */}
                 {selectedTraitNode && floatNode && (
                   <div className="skt-float-panel">
-                    <div className="skt-float-info">
-                      <strong>{floatHidden ? "???" : floatNode.name}</strong>
-                      {!floatHidden && <span>{floatNode.desc}</span>}
-                      {floatActive && <span className="skt-float-done">이미 활성화됨</span>}
-                      {floatNext   && <span className="skt-float-cost">{floatCost}pt 필요</span>}
-                      {floatHidden && <span className="skt-float-locked">이전 노드를 먼저 활성화하세요</span>}
+                    <div className="skt-float-header">
+                      <div className="skt-float-info">
+                        <strong>{floatHidden ? "???" : floatNode.name}</strong>
+                        {!floatHidden && <span>{floatNode.desc}</span>}
+                        {floatActive && <span className="skt-float-done">✓ 활성화됨</span>}
+                        {floatNext   && <span className="skt-float-cost">필요: {floatCost}pt</span>}
+                        {floatHidden && <span className="skt-float-locked">이전 노드를 먼저 활성화하세요</span>}
+                      </div>
+                      <button className="skt-float-close" onClick={() => setSelectedTraitNode(null)}>✕</button>
                     </div>
                     {floatNext && (
                       <button
@@ -1814,11 +1829,8 @@ export default function Home() {
                         disabled={!floatAfford}
                         onClick={() => { activateTraitNode(floatBranch!, floatIdx); setSelectedTraitNode(null); }}
                       >
-                        {floatAfford ? `활성화 (${floatCost}pt)` : `부족 (${floatCost}pt)`}
+                        {floatAfford ? `활성화  (${floatCost}pt)` : `포인트 부족  (${floatCost}pt 필요)`}
                       </button>
-                    )}
-                    {(floatActive || floatHidden) && (
-                      <button className="skt-float-close" onClick={() => setSelectedTraitNode(null)}>✕</button>
                     )}
                   </div>
                 )}
