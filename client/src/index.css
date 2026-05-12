@@ -3793,10 +3793,9 @@ button:active:not(:disabled),
   overflow: hidden;
   min-height: 0;
   background:
-    radial-gradient(ellipse at center, rgba(60,30,80,0.15) 0%, transparent 70%),
-    repeating-linear-gradient(0deg, rgba(80,60,100,0.04) 0px, rgba(80,60,100,0.04) 1px, transparent 1px, transparent 32px),
-    repeating-linear-gradient(90deg, rgba(80,60,100,0.04) 0px, rgba(80,60,100,0.04) 1px, transparent 1px, transparent 32px),
-    #0a0612;
+    repeating-linear-gradient(0deg, rgba(60,45,15,0.06) 0px, rgba(60,45,15,0.06) 1px, transparent 1px, transparent 68px),
+    repeating-linear-gradient(90deg, rgba(60,45,15,0.06) 0px, rgba(60,45,15,0.06) 1px, transparent 1px, transparent 68px),
+    #080600;
   cursor: grab;
   touch-action: none;
   user-select: none;
@@ -3806,9 +3805,8 @@ button:active:not(:disabled),
 
 .skt-tree-pan {
   position: absolute;
-  left: 50%; top: 50%;
-  margin-left: -300px; margin-top: -300px;
-  transform-origin: center;
+  left: 0; top: 0;
+  transform-origin: top left;
   will-change: transform;
 }
 
@@ -3898,6 +3896,18 @@ button:active:not(:disabled),
       inset 2px 2px 0 rgba(255,90,50,0.32), inset -1px -1px 0 rgba(120,0,0,0.7);
   }
 }
+
+/* ── LOCKED — ghost empty slot, shows spiral shape ─────────── */
+.skt-tree-sq.skt-locked {
+  border-color: #221a08;
+  background: rgba(10,8,2,0.4);
+  color: transparent;
+  pointer-events: none;
+  cursor: default;
+  opacity: 0.55;
+  box-shadow: none;
+}
+.skt-tree-sq.skt-locked::before { display: none; }
 
 /* ── MILESTONE (every 10th) — thicker brighter frame ───────── */
 .skt-tree-sq.milestone { border-width: 4px; }
